@@ -1,0 +1,94 @@
+<Window x:Class="SunloginManager.Views.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="关于" 
+        Height="450" 
+        Width="550"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#F5F5F7">
+    
+    <Window.Resources>
+        <Style x:Key="AppleButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#007AFF"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="6"
+                                Padding="12,6">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#0056CC"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#004499"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <Style x:Key="AppleCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="#000000" Opacity="0.05" ShadowDepth="0" BlurRadius="10"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 应用图标和标题 -->
+        <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,20,0,30">
+            <TextBlock Text="🌻" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+            <TextBlock Text="向日葵远程连接管理器" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="#1D1D1F"/>
+            <TextBlock Text="版本 1.0.0" FontSize="14" HorizontalAlignment="Center" Foreground="#8E8E93" Margin="0,5,0,0"/>
+        </StackPanel>
+        
+        <!-- 内容区域 -->
+        <Border Grid.Row="1" Style="{StaticResource AppleCardStyle}">
+            <StackPanel>
+                <TextBlock Text="欢迎使用向日葵远程连接管理器！" FontSize="16" FontWeight="Medium" HorizontalAlignment="Center" Margin="0,0,0,20" TextWrapping="Wrap"/>
+                <TextBlock Text="这是一个简单易用的向日葵远程连接管理工具，帮助您更方便地管理远程连接。作者信息:https://github.com/songtay" FontSize="14" HorizontalAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,20"/>
+                
+                <Separator Margin="0,10"/>
+                
+               
+                
+                <TextBlock Text="感谢您的使用！" FontSize="14" HorizontalAlignment="Center" Margin="0,20,0,0" FontWeight="Medium"/>
+            </StackPanel>
+        </Border>
+        
+        <!-- 关闭按钮 -->
+        <Button Grid.Row="2" 
+                Content="关闭" 
+                Style="{StaticResource AppleButtonStyle}" 
+                Width="100" 
+                Height="35" 
+                HorizontalAlignment="Center" 
+                Margin="0,20,0,0"
+                Click="CloseButton_Click"/>
+    </Grid>
+</Window>

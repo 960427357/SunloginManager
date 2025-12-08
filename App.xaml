@@ -1,0 +1,10 @@
+<Application x:Class="SunloginManager.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:SunloginManager">
+    <Application.Resources>
+        <!-- 值转换器 -->
+        <local:BoolToStatusConverter x:Key="BoolToStatusConverter"/>
+        <local:BoolToColorConverter x:Key="BoolToColorConverter"/>
+    </Application.Resources>
+</Application>
