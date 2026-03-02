@@ -14,6 +14,8 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Threading;
 using WpfColor = System.Windows.Media.Color;
+using System.Windows.Interop;
+using System.Runtime.InteropServices;
 
 namespace SunloginManager
 {
@@ -27,6 +29,7 @@ namespace SunloginManager
         private RemoteConnection? _selectedConnection;
         private TextBlock? _searchPlaceholderControl;
         private DispatcherTimer _statusTimer;
+        private const uint WM_SHOWWINDOW_CUSTOM = 0x0400 + 1;
         
         public ObservableCollection<RemoteConnection> Connections { get; set; }
         
@@ -91,6 +94,70 @@ namespace SunloginManager
             SearchTextBox.GotFocus += SearchTextBox_GotFocus;
             SearchTextBox.LostFocus += SearchTextBox_LostFocus;
             SearchTextBox.TextChanged += SearchTextBox_TextChanged;
+            
+            // 添加窗口消息处理
+            this.SourceInitialized += MainWindow_SourceInitialized;
+        }
+        
+        private void MainWindow_SourceInitialized(object? sender, EventArgs e)
+        {
+            // 获取窗口句柄并添加消息钩子
+            HwndSource? source = PresentationSource.FromVisual(this) as HwndSource;
+            source?.AddHook(WndProc);
+            
+            LogService.LogInfo($"主窗口已初始化，句柄: {source?.Handle}");
+        }
+        
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            // 处理自定义窗口消息
+            if (msg == WM_SHOWWINDOW_CUSTOM)
+            {
+                LogService.LogInfo("收到显示窗口消息");
+                // 使用 Dispatcher 确保在 UI 线程上执行
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ShowAndActivateWindow();
+                }));
+                handled = true;
+            }
+            return IntPtr.Zero;
+        }
+        
+        private void ShowAndActivateWindow()
+        {
+            try
+            {
+                LogService.LogInfo("开始激活窗口");
+                
+                // 确保窗口显示在任务栏和屏幕上
+                this.ShowInTaskbar = true;
+                
+                // 如果窗口已经隐藏，则显示它
+                if (this.Visibility != Visibility.Visible)
+                {
+                    this.Show();
+                    LogService.LogInfo("窗口已显示");
+                }
+                
+                // 确保窗口状态正常并激活
+                if (this.WindowState == WindowState.Minimized)
+                {
+                    this.WindowState = WindowState.Normal;
+                    LogService.LogInfo("窗口已从最小化状态恢复");
+                }
+                
+                this.Activate();
+                this.Topmost = true;
+                this.Topmost = false;
+                this.Focus();
+                
+                LogService.LogInfo("窗口已激活");
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"激活窗口失败: {ex.Message}", ex);
+            }
         }
         
         // 刷新按钮点击事件
