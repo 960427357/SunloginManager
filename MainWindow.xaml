@@ -14,6 +14,7 @@
         <!-- 值转换器 -->
         <local:BoolToStatusConverter x:Key="BoolToStatusConverter"/>
         <local:BoolToColorConverter x:Key="BoolToColorConverter"/>
+        <local:ConnectionCodeMaskConverter x:Key="ConnectionCodeMaskConverter"/>
         
         <!-- 苹果风格按钮样式 -->
         <Style x:Key="AppleButtonStyle" TargetType="Button">
@@ -172,6 +173,131 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- 苹果风格下拉框样式 -->
+        <Style x:Key="AppleComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="BorderBrush" Value="#D1D1D6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="MinHeight" Value="45"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton"
+                                          Grid.Column="0"
+                                          Focusable="false"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="border"
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="#D1D1D6"
+                                                BorderThickness="1"
+                                                CornerRadius="4">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ContentPresenter Grid.Column="0"
+                                                                  Margin="12,0,0,0"
+                                                                  VerticalAlignment="Center"
+                                                                  HorizontalAlignment="Left"/>
+                                                <Path Grid.Column="1"
+                                                      x:Name="Arrow"
+                                                      Margin="0,0,12,0"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Right"
+                                                      Data="M 0 0 L 4 4 L 8 0 Z"
+                                                      Fill="#8E8E93"/>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="border" Property="BorderBrush" Value="#007AFF"/>
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="border" Property="BorderBrush" Value="#007AFF"/>
+                                                <Setter TargetName="Arrow" Property="Data" Value="M 0 4 L 4 0 L 8 4 Z"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ContentSite"
+                                              IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                              Margin="12,0,30,0"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"/>
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Border x:Name="DropDownBorder"
+                                        Background="White"
+                                        BorderBrush="#D1D1D6"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        MinWidth="{TemplateBinding ActualWidth}"
+                                        MaxHeight="300"
+                                        Margin="0,4,0,0">
+                                    <Border.Effect>
+                                        <DropShadowEffect Color="#000000" Opacity="0.15" ShadowDepth="2" BlurRadius="8"/>
+                                    </Border.Effect>
+                                    <ScrollViewer Margin="0,4"
+                                                  SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.56"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ComboBox下拉项样式 -->
+        <Style x:Key="AppleComboBoxItemStyle" TargetType="ComboBoxItem">
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#F0F8FF"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#E6F2FF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     
     <Grid>
@@ -198,6 +324,7 @@
                 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
                     <Button Content="刷新" Style="{StaticResource AppleButtonStyle}" Width="80" Height="35" Margin="0,0,10,0" Click="RefreshButton_Click"/>
+                    <Button Content="分组管理" Style="{StaticResource AppleButtonStyle}" Width="90" Height="35" Margin="0,0,10,0" Click="ManageGroupsButton_Click"/>
                     <Button Content="设置" Style="{StaticResource AppleButtonStyle}" Width="80" Height="35" Margin="0,0,10,0" Click="SettingsButton_Click"/>
                     <Button Content="关于" Style="{StaticResource AppleButtonStyle}" Width="80" Height="35" Margin="0,0,10,0" Click="AboutButton_Click"/>
                 </StackPanel>
@@ -223,6 +350,15 @@
                     <TextBlock Grid.Row="0" Text="远程连接列表" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,15" Foreground="#1D1D1F"/>
                     
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,15">
+                        <ComboBox x:Name="GroupFilterComboBox" 
+                                  Width="150" 
+                                  Height="45" 
+                                  Margin="0,0,10,0"
+                                  DisplayMemberPath="Name"
+                                  SelectedValuePath="Id"
+                                  SelectionChanged="GroupFilterComboBox_SelectionChanged"
+                                  Style="{StaticResource AppleComboBoxStyle}"
+                                  ItemContainerStyle="{StaticResource AppleComboBoxItemStyle}"/>
                         <Grid Width="250" Height="45">
                             <TextBox x:Name="SearchTextBox" Style="{StaticResource AppleTextBoxStyle}" Width="250" Height="45" TextChanged="SearchTextBox_TextChanged"/>
                             <TextBlock x:Name="SearchPlaceholder" Text="搜索连接..." VerticalAlignment="Center" Margin="15,0,0,0" Foreground="#8E8E93" IsHitTestVisible="False" Visibility="Collapsed"/>
@@ -260,7 +396,7 @@
                                 <GridViewColumn Header="连接码" Width="120">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding ConnectionCode}" FontFamily="Consolas"/>
+                                            <TextBlock Text="{Binding ConnectionCode, Converter={StaticResource ConnectionCodeMaskConverter}}" FontFamily="Consolas"/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>

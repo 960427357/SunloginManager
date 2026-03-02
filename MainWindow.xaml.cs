@@ -57,7 +57,7 @@ namespace SunloginManager
         {
             InitializeComponent();
             _dataService = new DataService();
-            _sunloginService = new SunloginService();
+            _sunloginService = new SunloginService(_dataService);
             Connections = new ObservableCollection<RemoteConnection>();
             
             DataContext = this;
@@ -76,6 +76,7 @@ namespace SunloginManager
                 _statusTimer.Stop();
             };
             
+            LoadGroups();
             LoadConnections();
             
             // 初始化搜索文本框
@@ -117,6 +118,25 @@ namespace SunloginManager
             var aboutWindow = new Views.AboutWindow();
             aboutWindow.Owner = this;
             aboutWindow.ShowDialog();
+        }
+
+        // 分组管理按钮点击事件
+        private void ManageGroupsButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new ManageGroupsDialog();
+            dialog.Owner = this;
+            if (dialog.ShowDialog() == true)
+            {
+                LoadGroups();
+                LoadConnections();
+                UpdateStatusText("分组已更新");
+            }
+        }
+
+        // 分组过滤器选择变化事件
+        private void GroupFilterComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            FilterConnections();
         }
         
         private void ViewLogsButton_Click(object sender, RoutedEventArgs e)
@@ -420,6 +440,21 @@ namespace SunloginManager
             }
         }
         
+        private void LoadGroups()
+        {
+            var groups = _dataService.GetAllGroups();
+            
+            // 添加"所有分组"选项
+            var allGroups = new System.Collections.Generic.List<ConnectionGroup>
+            {
+                new ConnectionGroup { Id = 0, Name = "所有分组" }
+            };
+            allGroups.AddRange(groups);
+            
+            GroupFilterComboBox.ItemsSource = allGroups;
+            GroupFilterComboBox.SelectedIndex = 0;
+        }
+
         private void LoadConnections()
         {
             Connections.Clear();
@@ -428,6 +463,39 @@ namespace SunloginManager
             {
                 Connections.Add(connection);
             }
+            FilterConnections();
+        }
+
+        private void FilterConnections()
+        {
+            if (ConnectionsListView.Items == null)
+                return;
+
+            int selectedGroupId = 0;
+            if (GroupFilterComboBox.SelectedValue != null)
+            {
+                selectedGroupId = (int)GroupFilterComboBox.SelectedValue;
+            }
+
+            string searchText = SearchTextBox?.Text?.ToLower() ?? string.Empty;
+
+            ConnectionsListView.Items.Filter = item =>
+            {
+                if (item is RemoteConnection connection)
+                {
+                    // 分组过滤
+                    bool groupMatch = selectedGroupId == 0 || connection.GroupId == selectedGroupId;
+                    
+                    // 搜索过滤
+                    bool searchMatch = string.IsNullOrWhiteSpace(searchText) ||
+                                       connection.Name.ToLower().Contains(searchText) ||
+                                       connection.IdentificationCode.ToLower().Contains(searchText) ||
+                                       connection.ConnectionCode.ToLower().Contains(searchText);
+                    
+                    return groupMatch && searchMatch;
+                }
+                return false;
+            };
         }
         
         private void RefreshConnectionList()
@@ -580,12 +648,8 @@ namespace SunloginManager
                 {
                     SearchPlaceholderControl.Visibility = Visibility.Visible;
                 }
-                // 重置过滤器，显示所有项目
-                if (ConnectionsListView.Items != null)
-                {
-                    ConnectionsListView.Items.Filter = null;
-                }
             }
+            FilterConnections();
         }
         
         private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -598,28 +662,7 @@ namespace SunloginManager
                     : Visibility.Collapsed;
             }
             
-            string searchText = SearchTextBox.Text.ToLower();
-            if (string.IsNullOrWhiteSpace(searchText))
-            {
-                // 重置过滤器，显示所有项目
-                if (ConnectionsListView.Items != null)
-                {
-                    ConnectionsListView.Items.Filter = null;
-                }
-            }
-            else
-            {
-                ConnectionsListView.Items.Filter = item =>
-                {
-                    if (item is RemoteConnection connection)
-                    {
-                        return connection.Name.ToLower().Contains(searchText) ||
-                               connection.IdentificationCode.ToLower().Contains(searchText) ||
-                               connection.ConnectionCode.ToLower().Contains(searchText);
-                    }
-                    return false;
-                };
-            }
+            FilterConnections();
         }
         
         public event PropertyChangedEventHandler? PropertyChanged;

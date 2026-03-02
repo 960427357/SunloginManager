@@ -1,4 +1,6 @@
 using System;
+using System.Text.Json.Serialization;
+using SunloginManager.Services;
 
 namespace SunloginManager.Models
 {
@@ -22,10 +24,46 @@ namespace SunloginManager.Models
         /// </summary>
         public string IdentificationCode { get; set; } = string.Empty;
 
+        private string _connectionCode = string.Empty;
+        
         /// <summary>
-        /// 连接码
+        /// 连接码（加密存储）
         /// </summary>
-        public string ConnectionCode { get; set; } = string.Empty;
+        [JsonPropertyName("connectionCode")]
+        public string ConnectionCode
+        {
+            get
+            {
+                // 如果是加密的，解密后返回
+                if (!string.IsNullOrEmpty(_connectionCode) && EncryptionService.IsEncrypted(_connectionCode))
+                {
+                    return EncryptionService.Decrypt(_connectionCode);
+                }
+                return _connectionCode;
+            }
+            set
+            {
+                // 存储时加密
+                if (!string.IsNullOrEmpty(value))
+                {
+                    _connectionCode = EncryptionService.Encrypt(value);
+                }
+                else
+                {
+                    _connectionCode = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 加密的连接码（用于JSON序列化）
+        /// </summary>
+        [JsonPropertyName("encryptedConnectionCode")]
+        public string EncryptedConnectionCode
+        {
+            get => _connectionCode;
+            set => _connectionCode = value;
+        }
 
         /// <summary>
         /// 验证码
@@ -56,6 +94,11 @@ namespace SunloginManager.Models
         /// 是否启用
         /// </summary>
         public bool IsEnabled { get; set; } = true;
+
+        /// <summary>
+        /// 所属分组ID（0表示未分组）
+        /// </summary>
+        public int GroupId { get; set; } = 0;
 
         /// <summary>
         /// 重写ToString方法，返回连接名称

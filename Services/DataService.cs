@@ -13,12 +13,14 @@ namespace SunloginManager.Services
         private readonly string _dataDirectory;
         private readonly string _settingsFilePath;
         private readonly string _connectionsFilePath;
+        private readonly string _groupsFilePath;
 
         public DataService()
         {
             _dataDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
             _settingsFilePath = Path.Combine(_dataDirectory, "settings.json");
             _connectionsFilePath = Path.Combine(_dataDirectory, "connections.json");
+            _groupsFilePath = Path.Combine(_dataDirectory, "groups.json");
 
             // 确保数据目录存在
             if (!Directory.Exists(_dataDirectory))
@@ -26,8 +28,14 @@ namespace SunloginManager.Services
                 Directory.CreateDirectory(_dataDirectory);
             }
             
+            // 初始化默认分组
+            InitializeDefaultGroup();
+            
             // 修复现有数据中的ID问题
             FixConnectionIds();
+            
+            // 迁移旧数据：加密连接码
+            MigrateConnectionCodes();
         }
 
         /// <summary>
@@ -117,6 +125,271 @@ namespace SunloginManager.Services
         }
 
         /// <summary>
+        /// 迁移旧数据：加密连接码
+        /// </summary>
+        private void MigrateConnectionCodes()
+        {
+            try
+            {
+                if (!File.Exists(_connectionsFilePath))
+                    return;
+
+                // 读取原始JSON文件
+                string json = File.ReadAllText(_connectionsFilePath);
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
+
+                // 使用动态类型读取，检查是否有未加密的连接码
+                var jsonDoc = System.Text.Json.JsonDocument.Parse(json);
+                bool needsMigration = false;
+
+                foreach (var element in jsonDoc.RootElement.EnumerateArray())
+                {
+                    if (element.TryGetProperty("connectionCode", out var codeProperty))
+                    {
+                        string code = codeProperty.GetString() ?? string.Empty;
+                        if (!string.IsNullOrEmpty(code) && !EncryptionService.IsEncrypted(code))
+                        {
+                            needsMigration = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (needsMigration)
+                {
+                    LogService.LogInfo("检测到未加密的连接码，开始迁移...");
+                    
+                    // 加载并重新保存，会自动加密
+                    var connections = LoadConnections();
+                    SaveConnections(connections);
+                    
+                    LogService.LogInfo($"已完成 {connections.Count} 个连接的加密迁移");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"迁移连接码加密失败: {ex.Message}", ex);
+            }
+        }
+
+        #region 分组管理
+
+        /// <summary>
+        /// 初始化默认分组
+        /// </summary>
+        private void InitializeDefaultGroup()
+        {
+            try
+            {
+                var groups = LoadGroups();
+                if (groups.Count == 0)
+                {
+                    var defaultGroup = new ConnectionGroup
+                    {
+                        Id = 1,
+                        Name = "默认分组",
+                        Description = "系统默认分组",
+                        Color = "#007AFF",
+                        SortOrder = 0,
+                        IsDefault = true
+                    };
+                    groups.Add(defaultGroup);
+                    SaveGroups(groups);
+                    LogService.LogInfo("已创建默认分组");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"初始化默认分组失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 获取所有分组
+        /// </summary>
+        public System.Collections.Generic.List<ConnectionGroup> GetAllGroups()
+        {
+            return LoadGroups();
+        }
+
+        /// <summary>
+        /// 保存分组
+        /// </summary>
+        public void SaveGroup(ConnectionGroup group)
+        {
+            try
+            {
+                var groups = LoadGroups();
+                
+                if (group.Id == 0)
+                {
+                    int maxId = 0;
+                    foreach (var g in groups)
+                    {
+                        if (g.Id > maxId)
+                            maxId = g.Id;
+                    }
+                    group.Id = maxId + 1;
+                }
+                
+                groups.Add(group);
+                SaveGroups(groups);
+                LogService.LogInfo($"已保存分组: {group.Name} (ID: {group.Id})");
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"保存分组失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 更新分组
+        /// </summary>
+        public void UpdateGroup(ConnectionGroup group)
+        {
+            try
+            {
+                var groups = LoadGroups();
+                int index = groups.FindIndex(g => g.Id == group.Id);
+                
+                if (index >= 0)
+                {
+                    groups[index] = group;
+                    SaveGroups(groups);
+                    LogService.LogInfo($"已更新分组: {group.Name}");
+                }
+                else
+                {
+                    LogService.LogWarning($"未找到要更新的分组: {group.Id}");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"更新分组失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 删除分组
+        /// </summary>
+        public void DeleteGroup(int groupId)
+        {
+            try
+            {
+                var groups = LoadGroups();
+                var group = groups.Find(g => g.Id == groupId);
+                
+                if (group != null && group.IsDefault)
+                {
+                    LogService.LogWarning("不能删除默认分组");
+                    return;
+                }
+                
+                int removedCount = groups.RemoveAll(g => g.Id == groupId);
+                
+                if (removedCount > 0)
+                {
+                    // 将该分组下的所有连接移到默认分组
+                    var connections = LoadConnections();
+                    foreach (var conn in connections)
+                    {
+                        if (conn.GroupId == groupId)
+                        {
+                            conn.GroupId = 1; // 移到默认分组
+                        }
+                    }
+                    SaveConnections(connections);
+                    
+                    SaveGroups(groups);
+                    LogService.LogInfo($"已删除分组: {groupId}");
+                }
+                else
+                {
+                    LogService.LogWarning($"未找到要删除的分组: {groupId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"删除分组失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 根据分组ID获取连接列表
+        /// </summary>
+        public System.Collections.Generic.List<RemoteConnection> GetConnectionsByGroup(int groupId)
+        {
+            try
+            {
+                var connections = LoadConnections();
+                return connections.FindAll(c => c.GroupId == groupId);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"获取分组连接失败: {ex.Message}", ex);
+                return new System.Collections.Generic.List<RemoteConnection>();
+            }
+        }
+
+        /// <summary>
+        /// 加载分组列表
+        /// </summary>
+        private System.Collections.Generic.List<ConnectionGroup> LoadGroups()
+        {
+            try
+            {
+                if (!File.Exists(_groupsFilePath))
+                {
+                    return new System.Collections.Generic.List<ConnectionGroup>();
+                }
+
+                string json = File.ReadAllText(_groupsFilePath);
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
+
+                var groups = JsonSerializer.Deserialize<System.Collections.Generic.List<ConnectionGroup>>(json, options);
+                return groups ?? new System.Collections.Generic.List<ConnectionGroup>();
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"加载分组列表失败: {ex.Message}", ex);
+                return new System.Collections.Generic.List<ConnectionGroup>();
+            }
+        }
+
+        /// <summary>
+        /// 保存分组列表
+        /// </summary>
+        private void SaveGroups(System.Collections.Generic.List<ConnectionGroup> groups)
+        {
+            try
+            {
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
+
+                string json = JsonSerializer.Serialize(groups, options);
+                File.WriteAllText(_groupsFilePath, json);
+                LogService.LogInfo($"已保存 {groups.Count} 个分组");
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"保存分组列表失败: {ex.Message}", ex);
+            }
+        }
+
+        #endregion
+
+        /// <summary>
         /// 保存远程连接列表
         /// </summary>
         /// <param name="connections">远程连接列表</param>
@@ -127,12 +400,33 @@ namespace SunloginManager.Services
                 var options = new JsonSerializerOptions
                 {
                     WriteIndented = true,
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never
                 };
 
-                string json = JsonSerializer.Serialize(connections, options);
+                // 创建一个临时列表用于序列化，只保存加密的连接码
+                var serializableConnections = new System.Collections.Generic.List<object>();
+                foreach (var conn in connections)
+                {
+                    serializableConnections.Add(new
+                    {
+                        id = conn.Id,
+                        name = conn.Name,
+                        identificationCode = conn.IdentificationCode,
+                        encryptedConnectionCode = conn.EncryptedConnectionCode, // 保存加密后的连接码
+                        verificationCode = conn.VerificationCode,
+                        createdAt = conn.CreatedAt,
+                        updatedAt = conn.UpdatedAt,
+                        lastConnectedAt = conn.LastConnectedAt,
+                        remarks = conn.Remarks,
+                        isEnabled = conn.IsEnabled,
+                        groupId = conn.GroupId
+                    });
+                }
+
+                string json = JsonSerializer.Serialize(serializableConnections, options);
                 File.WriteAllText(_connectionsFilePath, json);
-                LogService.LogInfo($"已保存 {connections.Count} 个远程连接");
+                LogService.LogInfo($"已保存 {connections.Count} 个远程连接（连接码已加密）");
             }
             catch (Exception ex)
             {
@@ -155,15 +449,63 @@ namespace SunloginManager.Services
                 }
 
                 string json = File.ReadAllText(_connectionsFilePath);
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true,
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                };
+                
+                // 使用JsonDocument先解析，以便处理新旧格式
+                var jsonDoc = System.Text.Json.JsonDocument.Parse(json);
+                var connections = new System.Collections.Generic.List<RemoteConnection>();
 
-                var connections = JsonSerializer.Deserialize<System.Collections.Generic.List<RemoteConnection>>(json, options);
-                LogService.LogInfo($"已加载 {connections?.Count ?? 0} 个远程连接");
-                return connections ?? new System.Collections.Generic.List<RemoteConnection>();
+                foreach (var element in jsonDoc.RootElement.EnumerateArray())
+                {
+                    var conn = new RemoteConnection();
+                    
+                    if (element.TryGetProperty("id", out var idProp))
+                        conn.Id = idProp.GetInt32();
+                    
+                    if (element.TryGetProperty("name", out var nameProp))
+                        conn.Name = nameProp.GetString() ?? string.Empty;
+                    
+                    if (element.TryGetProperty("identificationCode", out var idCodeProp))
+                        conn.IdentificationCode = idCodeProp.GetString() ?? string.Empty;
+                    
+                    // 优先读取加密的连接码
+                    if (element.TryGetProperty("encryptedConnectionCode", out var encCodeProp))
+                    {
+                        conn.EncryptedConnectionCode = encCodeProp.GetString() ?? string.Empty;
+                    }
+                    // 兼容旧格式：如果没有加密字段，读取明文字段
+                    else if (element.TryGetProperty("connectionCode", out var codeProp))
+                    {
+                        string code = codeProp.GetString() ?? string.Empty;
+                        // 如果是明文，通过属性设置会自动加密
+                        conn.ConnectionCode = code;
+                    }
+                    
+                    if (element.TryGetProperty("verificationCode", out var verCodeProp))
+                        conn.VerificationCode = verCodeProp.GetString() ?? string.Empty;
+                    
+                    if (element.TryGetProperty("createdAt", out var createdProp))
+                        conn.CreatedAt = createdProp.GetDateTime();
+                    
+                    if (element.TryGetProperty("updatedAt", out var updatedProp))
+                        conn.UpdatedAt = updatedProp.GetDateTime();
+                    
+                    if (element.TryGetProperty("lastConnectedAt", out var lastConnProp))
+                        conn.LastConnectedAt = lastConnProp.GetDateTime();
+                    
+                    if (element.TryGetProperty("remarks", out var remarksProp))
+                        conn.Remarks = remarksProp.GetString() ?? string.Empty;
+                    
+                    if (element.TryGetProperty("isEnabled", out var enabledProp))
+                        conn.IsEnabled = enabledProp.GetBoolean();
+                    
+                    if (element.TryGetProperty("groupId", out var groupIdProp))
+                        conn.GroupId = groupIdProp.GetInt32();
+                    
+                    connections.Add(conn);
+                }
+
+                LogService.LogInfo($"已加载 {connections.Count} 个远程连接");
+                return connections;
             }
             catch (Exception ex)
             {
