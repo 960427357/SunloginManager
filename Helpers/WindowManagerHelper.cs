@@ -1,17 +1,26 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using SunloginManager.Constants;
 using SunloginManager.Services;
 
 namespace SunloginManager.Helpers
 {
-    /// <summary>
-    /// 窗口管理帮助类
-    /// </summary>
     public static class WindowManagerHelper
     {
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+        [DllImport("user32.dll")]
+        private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
         /// <summary>
         /// 查找向日葵窗口
         /// </summary>
@@ -173,6 +182,115 @@ namespace SunloginManager.Helpers
                 LogService.LogWarning($"强制激活窗口失败：{ex.Message}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 等待连接窗口出现（需稳定存在），然后等待它消失。返回连接是否成功建立。
+        /// </summary>
+        public static async Task<bool> WaitForConnectionSessionAsync(string identificationCode, int pollIntervalMs = 5000, int appearTimeoutMs = 30000, int closeTimeoutMs = 3600000)
+        {
+            LogService.LogInfo($"开始监控连接会话: 识别码 {identificationCode}");
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+
+            // 阶段1: 等待连接窗口出现，连续3次检测到才算真正出现
+            bool windowAppeared = false;
+            int stableCount = 0;
+            const int requiredStableCount = 3;
+            while (sw.ElapsedMilliseconds < appearTimeoutMs)
+            {
+                var windows = GetOpenWindows();
+                if (windows.Any(w => IsWindowVisible(w.hWnd) && w.title.Replace(" ", "").Contains(identificationCode)))
+                {
+                    stableCount++;
+                    if (stableCount >= requiredStableCount)
+                    {
+                        windowAppeared = true;
+                        LogService.LogInfo($"检测到可见连接窗口: {identificationCode}, 耗时 {sw.ElapsedMilliseconds}ms");
+                        break;
+                    }
+                }
+                else
+                {
+                    stableCount = 0;
+                }
+                await Task.Delay(pollIntervalMs);
+            }
+
+            if (!windowAppeared)
+            {
+                LogService.LogWarning($"连接窗口未在 {appearTimeoutMs}ms 内稳定出现，连接可能未建立");
+                return false;
+            }
+
+            // 阶段2: 等待连接窗口关闭
+            sw.Restart();
+            while (sw.ElapsedMilliseconds < closeTimeoutMs)
+            {
+                var windows = GetOpenWindows();
+                if (!windows.Any(w => IsWindowVisible(w.hWnd) && w.title.Replace(" ", "").Contains(identificationCode)))
+                {
+                    LogService.LogInfo($"连接窗口已关闭: {identificationCode}, 会话时长 {sw.ElapsedMilliseconds}ms");
+                    return true;
+                }
+                await Task.Delay(pollIntervalMs);
+            }
+
+            LogService.LogWarning($"监控超时: 识别码 {identificationCode}");
+            return true;
+        }
+
+        /// <summary>
+        /// 查找包含指定识别码的连接窗口，返回其进程ID
+        /// </summary>
+        public static Process? FindRemoteConnectionProcess(string identificationCode, int timeoutMs = 15000)
+        {
+            LogService.LogInfo($"开始查找识别码为 {identificationCode} 的远程连接窗口...");
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (sw.ElapsedMilliseconds < timeoutMs)
+            {
+                var windows = GetOpenWindows();
+                foreach (var (hWnd, title) in windows)
+                {
+                    if (title.Replace(" ", "").Contains(identificationCode))
+                    {
+                        uint pid = GetWindowProcessId(hWnd);
+                        if (pid > 0)
+                        {
+                            try
+                            {
+                                var proc = Process.GetProcessById((int)pid);
+                                LogService.LogInfo($"找到远程连接窗口 PID: {pid}, 标题: '{title}'");
+                                return proc;
+                            }
+                            catch { }
+                        }
+                    }
+                }
+                System.Threading.Thread.Sleep(500);
+            }
+            LogService.LogWarning($"超时未找到识别码 {identificationCode} 的连接窗口");
+            return null;
+        }
+
+        private static List<(IntPtr hWnd, string title)> GetOpenWindows()
+        {
+            var result = new List<(IntPtr, string)>();
+            EnumWindows((hWnd, _) =>
+            {
+                var sb = new System.Text.StringBuilder(256);
+                if (GetWindowText(hWnd, sb, sb.Capacity) > 0)
+                {
+                    result.Add((hWnd, sb.ToString()));
+                }
+                return true;
+            }, IntPtr.Zero);
+            return result;
+        }
+
+        private static uint GetWindowProcessId(IntPtr hWnd)
+        {
+            GetWindowThreadProcessId(hWnd, out uint pid);
+            return pid;
         }
     }
 }

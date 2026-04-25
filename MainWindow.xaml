@@ -15,6 +15,7 @@
         <local:BoolToStatusConverter x:Key="BoolToStatusConverter"/>
         <local:BoolToColorConverter x:Key="BoolToColorConverter"/>
         <local:ConnectionCodeMaskConverter x:Key="ConnectionCodeMaskConverter"/>
+        <local:BoolToStarConverter x:Key="BoolToStarConverter"/>
         
         <!-- 苹果风格按钮样式 -->
         <Style x:Key="AppleButtonStyle" TargetType="Button">
@@ -298,6 +299,17 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- 右键菜单样式 -->
+        <ContextMenu x:Key="ConnectionContextMenu">
+            <MenuItem Header="收藏" Click="ContextToggleFavorite_Click"/>
+            <MenuItem Header="连接" Click="ContextConnect_Click"/>
+            <MenuItem Header="测试连接" Click="ContextTestConnect_Click"/>
+            <MenuItem Header="编辑" Click="ContextEdit_Click"/>
+            <MenuItem Header="分享" Click="ContextShare_Click"/>
+            <Separator/>
+            <MenuItem Header="删除" Click="ContextDelete_Click"/>
+        </ContextMenu>
     </Window.Resources>
     
     <Grid>
@@ -323,10 +335,13 @@
                 </StackPanel>
                 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
-                    <Button Content="刷新" Style="{StaticResource AppleButtonStyle}" Width="80" Height="35" Margin="0,0,10,0" Click="RefreshButton_Click"/>
-                    <Button Content="分组管理" Style="{StaticResource AppleButtonStyle}" Width="90" Height="35" Margin="0,0,10,0" Click="ManageGroupsButton_Click"/>
-                    <Button Content="设置" Style="{StaticResource AppleButtonStyle}" Width="80" Height="35" Margin="0,0,10,0" Click="SettingsButton_Click"/>
-                    <Button Content="关于" Style="{StaticResource AppleButtonStyle}" Width="80" Height="35" Margin="0,0,10,0" Click="AboutButton_Click"/>
+                    <Button Content="刷新" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,5,0" Click="RefreshButton_Click"/>
+                    <Button Content="历史" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,5,0" Click="HistoryButton_Click"/>
+                    <Button Content="统计" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,5,0" Click="StatsButton_Click"/>
+                    <Button Content="测试" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,5,0" Click="TestConnectionButton_Click"/>
+                    <Button Content="分组" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,5,0" Click="ManageGroupsButton_Click"/>
+                    <Button Content="设置" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,5,0" Click="SettingsButton_Click"/>
+                    <Button Content="关于" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,0,0" Click="AboutButton_Click"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -366,9 +381,18 @@
                         <Button Content="添加连接" Style="{StaticResource AppleButtonStyle}" Width="120" Height="45" Margin="10,0,0,0" Click="AddConnectionButton_Click"/>
                     </StackPanel>
                     
-                    <ListView x:Name="ConnectionsListView" Grid.Row="2" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled" ItemsSource="{Binding Connections}" ItemContainerStyle="{StaticResource TableRowStyle}">
+                    <ListView x:Name="ConnectionsListView" Grid.Row="2" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled" ItemsSource="{Binding Connections}" ItemContainerStyle="{StaticResource TableRowStyle}" PreviewMouseDoubleClick="ConnectionsListView_MouseDoubleClick" PreviewMouseLeftButtonDown="ConnectionsListView_PreviewMouseLeftButtonDown" MouseRightButtonDown="ConnectionsListView_MouseRightButtonDown" ContextMenu="{StaticResource ConnectionContextMenu}">
                         <ListView.View>
                             <GridView>
+                                <!-- 收藏列 -->
+                                <GridViewColumn Width="40">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding IsFavorite, Converter={StaticResource BoolToStarConverter}}" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+
                                 <!-- 状态列 -->
                                 <GridViewColumn Width="40">
                                     <GridViewColumn.CellTemplate>

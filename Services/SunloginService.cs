@@ -103,6 +103,122 @@ namespace SunloginManager.Services
             }
         }
 
+        /// <summary>
+        /// 连接并返回连接会话进程用于时长监控
+        /// </summary>
+        public async Task<(bool Success, Process? SessionProcess)> ConnectWithMonitoringAsync(RemoteConnection connection)
+        {
+            LogService.LogInfo($"开始连接到远程主机（监控模式）：{connection.Name}");
+
+            if (!IsSunloginInstalled())
+            {
+                LogService.LogError("向日葵客户端路径无效或不存在");
+                return (false, null);
+            }
+
+            try
+            {
+                // 启动向日葵客户端
+                ProcessStartInfo startInfo = new ProcessStartInfo
+                {
+                    FileName = _sunloginPath,
+                    UseShellExecute = true
+                };
+                await Task.Run(() => Process.Start(startInfo));
+
+                // 等待界面加载
+                await Task.Delay(TimingConstants.WINDOW_LOAD_DELAY);
+
+                // 自动输入识别码和连接码
+                bool inputSuccess = await AutoInputCodesAsync(connection);
+
+                if (!inputSuccess)
+                {
+                    LogService.LogError("自动输入识别码和连接码失败");
+                    return (false, null);
+                }
+
+                // 等待连接窗口出现（确认连接已建立）
+                LogService.LogInfo("等待远程连接窗口出现...");
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                Process? sessionProc = null;
+                while (sw.ElapsedMilliseconds < 30000)
+                {
+                    sessionProc = WindowManagerHelper.FindRemoteConnectionProcess(connection.IdentificationCode, timeoutMs: 3000);
+                    if (sessionProc != null)
+                    {
+                        LogService.LogInfo($"找到连接会话进程: PID={sessionProc.Id}, 名称={sessionProc.ProcessName}");
+                        break;
+                    }
+                    await Task.Delay(1000);
+                }
+
+                if (sessionProc == null)
+                {
+                    LogService.LogWarning("未找到连接会话进程（30秒超时）");
+                    // 备用方案：找到最新的向日葵进程
+                    var procName = Path.GetFileNameWithoutExtension(_sunloginPath);
+                    var procs = Process.GetProcessesByName(procName);
+                    sessionProc = procs.OrderByDescending(p => p.StartTime).FirstOrDefault();
+                    LogService.LogWarning($"使用备用进程: {sessionProc?.ProcessName}, PID={sessionProc?.Id}");
+                }
+
+                return (true, sessionProc);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"连接失败：{ex.Message}", ex);
+                return (false, null);
+            }
+        }
+
+        /// <summary>
+        /// 测试连接：检查客户端是否存在、识别码格式是否正确
+        /// </summary>
+        public async Task<(bool Success, string Message)> TestConnectionAsync(RemoteConnection connection)
+        {
+            // 1. 检查向日葵客户端是否存在
+            if (!IsSunloginInstalled())
+            {
+                return (false, "向日葵客户端未找到，请在设置中配置路径");
+            }
+
+            // 2. 检查识别码格式
+            if (string.IsNullOrWhiteSpace(connection.IdentificationCode))
+            {
+                return (false, "识别码为空");
+            }
+
+            string code = connection.IdentificationCode.Trim();
+            if (!code.All(char.IsDigit))
+            {
+                return (false, "识别码格式错误：应为纯数字");
+            }
+
+            if (code.Length < 4 || code.Length > 12)
+            {
+                return (false, $"识别码长度异常：当前 {code.Length} 位，应为 4-12 位");
+            }
+
+            // 3. 检查向日葵进程是否响应
+            bool isRunning = false;
+            try
+            {
+                var procs = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(_sunloginPath));
+                isRunning = procs.Length > 0;
+            }
+            catch { }
+
+            if (isRunning)
+            {
+                return (true, "连接测试通过（向日葵正在运行）");
+            }
+            else
+            {
+                return (true, "识别码格式正确（向日葵未运行，连接时将自动启动）");
+            }
+        }
+
         #endregion
 
         #region 私有方法

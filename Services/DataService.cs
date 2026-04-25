@@ -413,13 +413,14 @@ namespace SunloginManager.Services
                         id = conn.Id,
                         name = conn.Name,
                         identificationCode = conn.IdentificationCode,
-                        encryptedConnectionCode = conn.EncryptedConnectionCode, // 保存加密后的连接码
+                        encryptedConnectionCode = conn.EncryptedConnectionCode,
                         verificationCode = conn.VerificationCode,
                         createdAt = conn.CreatedAt,
                         updatedAt = conn.UpdatedAt,
                         lastConnectedAt = conn.LastConnectedAt,
                         remarks = conn.Remarks,
                         isEnabled = conn.IsEnabled,
+                        isFavorite = conn.IsFavorite,
                         groupId = conn.GroupId
                     });
                 }
@@ -497,7 +498,10 @@ namespace SunloginManager.Services
                     
                     if (element.TryGetProperty("isEnabled", out var enabledProp))
                         conn.IsEnabled = enabledProp.GetBoolean();
-                    
+
+                    if (element.TryGetProperty("isFavorite", out var favProp))
+                        conn.IsFavorite = favProp.GetBoolean();
+
                     if (element.TryGetProperty("groupId", out var groupIdProp))
                         conn.GroupId = groupIdProp.GetInt32();
                     

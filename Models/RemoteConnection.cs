@@ -96,6 +96,11 @@ namespace SunloginManager.Models
         public bool IsEnabled { get; set; } = true;
 
         /// <summary>
+        /// 是否收藏
+        /// </summary>
+        public bool IsFavorite { get; set; } = false;
+
+        /// <summary>
         /// 所属分组ID（0表示未分组）
         /// </summary>
         public int GroupId { get; set; } = 0;

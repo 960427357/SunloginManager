@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,12 +12,14 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using SunloginManager.Models;
 using SunloginManager.Services;
+using SunloginManager.Helpers;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Threading;
 using WpfColor = System.Windows.Media.Color;
 using System.Windows.Interop;
 using System.Runtime.InteropServices;
+using MessageBox = System.Windows.MessageBox;
 
 namespace SunloginManager
 {
@@ -27,6 +30,7 @@ namespace SunloginManager
     {
         private readonly DataService _dataService;
         private readonly SunloginService _sunloginService;
+        private readonly HistoryService _historyService;
         private RemoteConnection? _selectedConnection;
         private TextBlock? _searchPlaceholderControl;
         private DispatcherTimer _statusTimer;
@@ -62,6 +66,7 @@ namespace SunloginManager
             InitializeComponent();
             _dataService = new DataService();
             _sunloginService = new SunloginService(_dataService);
+            _historyService = new HistoryService(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data"));
             Connections = new ObservableCollection<RemoteConnection>();
             
             DataContext = this;
@@ -297,40 +302,13 @@ namespace SunloginManager
         // 连接按钮点击事件
         private async void ConnectButton_Click(object sender, RoutedEventArgs e)
         {
-            var selectedConnection = ConnectionsListView.SelectedItem as RemoteConnection;
-            if (selectedConnection == null)
+            if (ConnectionsListView.SelectedItem is RemoteConnection connection)
+            {
+                await ConnectAndMonitorAsync(connection);
+            }
+            else
             {
                 UpdateStatusText("请先选择一个连接");
-                return;
-            }
-            
-            try
-            {
-                LogService.LogInfo($"正在连接到: {selectedConnection.Name}");
-                UpdateStatusText($"正在连接到: {selectedConnection.Name}");
-                
-                bool success = await _sunloginService.ConnectToRemoteAsync(selectedConnection);
-                
-                if (success)
-                {
-                    // 更新最后连接时间
-                    selectedConnection.LastConnectedAt = DateTime.Now;
-                    _dataService.UpdateConnection(selectedConnection);
-                    LoadConnections();
-                    
-                    LogService.LogInfo($"已连接到: {selectedConnection.Name}");
-                    UpdateStatusText($"成功连接到 {selectedConnection.Name}");
-                }
-                else
-                {
-                    LogService.LogInfo("连接失败");
-                    UpdateStatusText("连接失败，请检查网络或连接码是否正确");
-                }
-            }
-            catch (Exception ex)
-            {
-                LogService.LogInfo($"连接出错: {ex.Message}");
-                UpdateStatusText($"连接出错: {ex.Message}");
             }
         }
         
@@ -339,34 +317,7 @@ namespace SunloginManager
         {
             if (SelectedConnection != null)
             {
-                try
-                {
-                    LogService.LogInfo($"开始连接: {SelectedConnection.Name} (ID: {SelectedConnection.Id})");
-                    UpdateStatusText($"正在连接 {SelectedConnection.Name}...");
-                    
-                    // 启动向日葵客户端并连接
-                    bool success = await _sunloginService.ConnectToRemoteAsync(SelectedConnection);
-                    
-                    if (success)
-                    {
-                        // 更新最后连接时间
-                        SelectedConnection.LastConnectedAt = DateTime.Now;
-                        _dataService.UpdateConnection(SelectedConnection);
-                        
-                        UpdateStatusText($"已连接到 {SelectedConnection.Name}");
-                        LogService.LogInfo($"成功连接到: {SelectedConnection.Name}");
-                    }
-                    else
-                    {
-                        UpdateStatusText($"连接失败");
-                        LogService.LogError($"连接失败: {SelectedConnection.Name}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    UpdateStatusText($"连接失败: {ex.Message}");
-                    LogService.LogError($"连接失败: {ex.Message}", ex);
-                }
+                await ConnectAndMonitorAsync(SelectedConnection);
             }
             else
             {
@@ -423,35 +374,7 @@ namespace SunloginManager
         {
             if (sender is System.Windows.Controls.Button button && button.DataContext is RemoteConnection connection)
             {
-                try
-                {
-                    LogService.LogInfo($"开始连接: {connection.Name} (ID: {connection.Id})");
-                    UpdateStatusText($"正在连接 {connection.Name}...");
-                    
-                    // 启动向日葵客户端并连接
-                    bool success = await _sunloginService.ConnectToRemoteAsync(connection);
-                    
-                    if (success)
-                    {
-                        // 更新最后连接时间
-                        connection.LastConnectedAt = DateTime.Now;
-                        _dataService.UpdateConnection(connection);
-                        LoadConnections();
-                        
-                        UpdateStatusText($"已连接到 {connection.Name}");
-                        LogService.LogInfo($"成功连接到: {connection.Name}");
-                    }
-                    else
-                    {
-                        UpdateStatusText($"连接失败");
-                        LogService.LogError($"连接失败: {connection.Name}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    UpdateStatusText($"连接失败: {ex.Message}");
-                    LogService.LogError($"连接失败: {ex.Message}", ex);
-                }
+                await ConnectAndMonitorAsync(connection);
             }
         }
         
@@ -793,7 +716,214 @@ namespace SunloginManager
             
             FilterConnections();
         }
-        
+
+        // ========== v2.0 新功能 ==========
+
+        // 双击连接
+        private async void ConnectionsListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (ConnectionsListView.SelectedItem is RemoteConnection connection)
+            {
+                await ConnectAndMonitorAsync(connection);
+            }
+        }
+
+        // 右键菜单 - 阻止默认行为，确保选中项正确
+        private void ConnectionsListView_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.Source is FrameworkElement fe && fe.DataContext is RemoteConnection conn)
+            {
+                ConnectionsListView.SelectedItem = conn;
+            }
+        }
+
+        // 右键菜单 - 连接
+        private async void ContextConnect_Click(object sender, RoutedEventArgs e)
+        {
+            if (ConnectionsListView.SelectedItem is RemoteConnection conn)
+            {
+                await ConnectAndMonitorAsync(conn);
+            }
+        }
+
+        // 右键菜单 - 切换收藏
+        private void ContextToggleFavorite_Click(object sender, RoutedEventArgs e)
+        {
+            if (ConnectionsListView.SelectedItem is RemoteConnection conn)
+            {
+                ToggleFavorite(conn);
+            }
+        }
+
+        // 右键菜单 - 测试连接
+        private async void ContextTestConnect_Click(object sender, RoutedEventArgs e)
+        {
+            if (ConnectionsListView.SelectedItem is RemoteConnection conn)
+            {
+                UpdateStatusText("正在测试连接...");
+                var (success, message) = await _sunloginService.TestConnectionAsync(conn);
+                UpdateStatusText(message);
+                MessageBox.Show(message, success ? "测试通过" : "测试失败", MessageBoxButton.OK, success ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            }
+        }
+
+        // 右键菜单 - 编辑
+        private void ContextEdit_Click(object sender, RoutedEventArgs e)
+        {
+            if (ConnectionsListView.SelectedItem is RemoteConnection conn)
+            {
+                var dialog = new EditConnectionDialog(conn);
+                if (dialog.ShowDialog() == true)
+                {
+                    var updated = dialog.GetConnection();
+                    if (updated != null)
+                    {
+                        _dataService.UpdateConnection(updated);
+                        RefreshConnectionList();
+                        UpdateStatusText($"连接 '{updated.Name}' 已更新");
+                    }
+                }
+            }
+        }
+
+        // 右键菜单 - 分享
+        private void ContextShare_Click(object sender, RoutedEventArgs e)
+        {
+            if (ConnectionsListView.SelectedItem is RemoteConnection conn)
+            {
+                ShareConnection(conn);
+            }
+        }
+
+        // 右键菜单 - 删除
+        private void ContextDelete_Click(object sender, RoutedEventArgs e)
+        {
+            if (ConnectionsListView.SelectedItem is RemoteConnection conn)
+            {
+                if (MessageBox.Show($"确定要删除连接 '{conn.Name}' 吗？", "确认删除", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                {
+                    _dataService.DeleteConnection(conn.Id.ToString());
+                    RefreshConnectionList();
+                    UpdateStatusText($"已删除连接: {conn.Name}");
+                }
+            }
+        }
+
+        // 切换收藏
+        public void ToggleFavorite(RemoteConnection connection)
+        {
+            connection.IsFavorite = !connection.IsFavorite;
+            _dataService.UpdateConnection(connection);
+            RefreshConnectionList();
+            UpdateStatusText(connection.IsFavorite ? $"已收藏: {connection.Name}" : $"取消收藏: {connection.Name}");
+        }
+
+        // 连接并监控时长
+        private async Task ConnectAndMonitorAsync(RemoteConnection connection)
+        {
+            try
+            {
+                LogService.LogInfo($"开始连接: {connection.Name} (ID: {connection.Id})");
+                UpdateStatusText($"正在连接 {connection.Name}...");
+
+                var (success, process) = await _sunloginService.ConnectWithMonitoringAsync(connection);
+
+                if (success)
+                {
+                    _dataService.UpdateConnection(connection);
+                    LoadConnections();
+                    UpdateStatusText($"已连接到 {connection.Name}");
+
+                    // 异步监控连接窗口关闭，计算时长
+                    {
+                        var startTime = DateTime.Now;
+                        _historyService.RecordStart(connection.Id, connection.Name, connection.IdentificationCode, startTime);
+                        LogService.LogInfo($"开始监控连接时长: {connection.Name}, 识别码: {connection.IdentificationCode}");
+
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                var windowExisted = await WindowManagerHelper.WaitForConnectionSessionAsync(
+                                    connection.IdentificationCode,
+                                    pollIntervalMs: 5000,
+                                    closeTimeoutMs: 3600000); // 最长1小时
+                                var endTime = DateTime.Now;
+                                _historyService.RecordEnd(connection.Id, endTime);
+                                LogService.LogInfo($"连接结束: {connection.Name}, 时长: {endTime - startTime}");
+                            }
+                            catch (Exception ex)
+                            {
+                                LogService.LogError($"监控连接时长异常: {ex.Message}");
+                            }
+                        });
+                    }
+                }
+                else
+                {
+                    UpdateStatusText("连接失败");
+                    _historyService.RecordFailed(connection.Id, connection.Name, connection.IdentificationCode, "连接未成功", ConnectionStatus.Failed);
+                }
+            }
+            catch (Exception ex)
+            {
+                UpdateStatusText($"连接失败: {ex.Message}");
+                LogService.LogError($"连接失败: {ex.Message}", ex);
+            }
+        }
+
+        // 顶部栏 - 历史记录
+        private void HistoryButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new ConnectionHistoryDialog(_historyService);
+            dialog.Owner = this;
+            dialog.ShowDialog();
+        }
+
+        // 顶部栏 - 统计
+        private void StatsButton_Click(object sender, RoutedEventArgs e)
+        {
+            var stats = _historyService.GetStats();
+            var dialog = new ConnectionStatsDialog(stats);
+            dialog.Owner = this;
+            dialog.ShowDialog();
+        }
+
+        // 顶部栏 - 测试连接
+        private async void TestConnectionButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (ConnectionsListView.SelectedItem is RemoteConnection conn)
+            {
+                UpdateStatusText("正在测试连接...");
+                var (success, message) = await _sunloginService.TestConnectionAsync(conn);
+                UpdateStatusText(message);
+                MessageBox.Show(message, success ? "测试通过" : "测试失败", MessageBoxButton.OK, success ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            }
+            else
+            {
+                UpdateStatusText("请先选择一个连接");
+            }
+        }
+
+        // 点击收藏星号
+        private void ConnectionsListView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var element = e.OriginalSource as FrameworkElement;
+            if (element?.DataContext is not RemoteConnection conn) return;
+
+            // 获取点击位置相对于行的X坐标
+            var listView = sender as System.Windows.Controls.ListView;
+            if (listView == null) return;
+
+            var point = e.GetPosition(listView);
+            // 收藏列宽度约40px，检查是否点击在第一列
+            if (point.X < 50)
+            {
+                ToggleFavorite(conn);
+                e.Handled = true;
+            }
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
         
         protected virtual void OnPropertyChanged(string propertyName)
