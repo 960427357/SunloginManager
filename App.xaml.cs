@@ -21,7 +21,18 @@ namespace SunloginManager
         private static Mutex? _mutex;
         private const string MUTEX_NAME = "SunloginManager_SingleInstance_Mutex";
         private const string WINDOW_CLASS_NAME = "SunloginManager_MainWindow";
-        
+
+        public App()
+        {
+            this.DispatcherUnhandledException += App_DispatcherUnhandledException;
+        }
+
+        private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+        {
+            Services.LogService.LogError($"未处理的异常：{e.Exception.Message}", e.Exception);
+            e.Handled = true;
+        }
+
         // Windows API
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern IntPtr FindWindow(string? lpClassName, string? lpWindowName);

@@ -532,19 +532,44 @@ namespace SunloginManager.Services
             try
             {
                 var connections = LoadConnections();
-                
-                // 如果连接ID为0，则分配一个新的唯一ID
+
+                // 按识别码去重：如果识别码已存在，跳过保存
+                if (!string.IsNullOrEmpty(connection.IdentificationCode))
+                {
+                    int existingIndex = connections.FindIndex(c => c.IdentificationCode == connection.IdentificationCode);
+                    if (existingIndex >= 0)
+                    {
+                        // 如果是同一个连接（ID相同），则更新
+                        if (connections[existingIndex].Id == connection.Id && connection.Id != 0)
+                        {
+                            connections[existingIndex] = connection;
+                            SaveConnections(connections);
+                            LogService.LogInfo($"已更新远程连接: {connection.Name} (ID: {connection.Id})");
+                            return;
+                        }
+                        // 识别码重复但ID不同，跳过
+                        LogService.LogWarning($"跳过重复识别码的连接: {connection.Name} (识别码: {connection.IdentificationCode})");
+                        return;
+                    }
+                }
+
                 if (connection.Id == 0)
                 {
-                    int maxId = 0;
-                    foreach (var conn in connections)
-                    {
-                        if (conn.Id > maxId)
-                            maxId = conn.Id;
-                    }
+                    int maxId = connections.Count > 0 ? connections.Max(c => c.Id) : 0;
                     connection.Id = maxId + 1;
                 }
-                
+                else
+                {
+                    int index = connections.FindIndex(c => c.Id == connection.Id);
+                    if (index >= 0)
+                    {
+                        connections[index] = connection;
+                        SaveConnections(connections);
+                        LogService.LogInfo($"已更新远程连接: {connection.Name} (ID: {connection.Id})");
+                        return;
+                    }
+                }
+
                 connections.Add(connection);
                 SaveConnections(connections);
                 LogService.LogInfo($"已保存远程连接: {connection.Name} (ID: {connection.Id})");

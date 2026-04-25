@@ -19,16 +19,16 @@ namespace SunloginManager.Services
 
         public SunloginService(DataService dataService = null)
         {
-            LogService.LogInfo("初始化SunloginService");
-            
+            LogService.LogInfo("初始化 SunloginService");
+
             _dataService = dataService ?? new DataService();
-            
+
             // 加载向日葵路径
             LoadSunloginPath();
         }
 
         #region 公共方法
-        
+
         /// <summary>
         /// 检查向日葵是否已安装
         /// </summary>
@@ -64,9 +64,9 @@ namespace SunloginManager.Services
         /// </summary>
         public async Task<bool> ConnectToRemoteAsync(RemoteConnection connection)
         {
-            LogService.LogInfo($"开始连接到远程主机: {connection.Name} (ID: {connection.Id})");
-            LogService.LogInfo($"连接详情 - 识别码: {connection.IdentificationCode}, 连接码: {connection.ConnectionCode}");
-            
+            LogService.LogInfo($"开始连接到远程主机：{connection.Name} (ID: {connection.Id})");
+            LogService.LogInfo($"连接详情 - 识别码：{connection.IdentificationCode}, 连接码：{connection.ConnectionCode}");
+
             if (!IsSunloginInstalled())
             {
                 LogService.LogError("向日葵客户端路径无效或不存在");
@@ -80,33 +80,33 @@ namespace SunloginManager.Services
                 {
                     return false;
                 }
-                
+
                 // 等待界面加载
                 await Task.Delay(TimingConstants.WINDOW_LOAD_DELAY);
-                
+
                 // 自动输入识别码和连接码
                 bool success = await AutoInputCodesAsync(connection);
-                
+
                 if (success)
                 {
                     // 更新最后连接时间
                     connection.LastConnectedAt = DateTime.Now;
-                    LogService.LogInfo($"连接成功，已更新最后连接时间: {connection.LastConnectedAt}");
+                    LogService.LogInfo($"连接成功，已更新最后连接时间：{connection.LastConnectedAt}");
                 }
-                
+
                 return success;
             }
             catch (Exception ex)
             {
-                LogService.LogError($"连接失败: {ex.Message}", ex);
+                LogService.LogError($"连接失败：{ex.Message}", ex);
                 return false;
             }
         }
-        
+
         #endregion
 
         #region 私有方法
-        
+
         /// <summary>
         /// 加载向日葵路径
         /// </summary>
@@ -114,29 +114,38 @@ namespace SunloginManager.Services
         {
             // 首先尝试从设置中加载路径
             _sunloginPath = _dataService.LoadSunloginPath();
-            LogService.LogInfo($"从设置加载的向日葵路径: {_sunloginPath}");
-            
-            // 如果没有保存的路径，尝试常见的向日葵安装路径
-            if (string.IsNullOrEmpty(_sunloginPath) || !File.Exists(_sunloginPath))
-            {
-                string[] possiblePaths = {
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Oray", "SunLogin", "SunloginClient.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Oray", "SunLogin", "SunloginClient.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "SunloginClient", "SunloginClient.exe")
-                };
+            LogService.LogInfo($"从设置加载的向日葵路径：{_sunloginPath}");
 
-                _sunloginPath = possiblePaths.FirstOrDefault(File.Exists) ?? string.Empty;
-                LogService.LogInfo($"搜索到的向日葵路径: {_sunloginPath}");
-                
-                // 如果找到了路径，保存它
-                if (!string.IsNullOrEmpty(_sunloginPath))
-                {
-                    _dataService.SaveSunloginPath(_sunloginPath);
-                    LogService.LogInfo("已保存向日葵路径到设置");
-                }
+            // 如果保存的路径存在，直接使用
+            if (!string.IsNullOrEmpty(_sunloginPath) && File.Exists(_sunloginPath))
+            {
+                LogService.LogInfo($"已验证向日葵路径有效：{_sunloginPath}");
+                return;
+            }
+
+            // 如果没有保存的路径或路径无效，尝试常见的向日葵安装路径
+            LogService.LogInfo("保存的路径无效，搜索常见安装路径...");
+            string[] possiblePaths = {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Oray", "SunLogin", "SunloginClient.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Oray", "SunLogin", "SunloginClient.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "SunloginClient", "SunloginClient.exe"),
+                @"C:\Program Files\Oray\AweSun\flutter\AweSun.exe"
+            };
+
+            string foundPath = possiblePaths.FirstOrDefault(File.Exists);
+            if (!string.IsNullOrEmpty(foundPath))
+            {
+                _sunloginPath = foundPath;
+                LogService.LogInfo($"搜索到向日葵路径：{_sunloginPath}");
+                _dataService.SaveSunloginPath(_sunloginPath);
+                LogService.LogInfo("已保存向日葵路径到设置");
+            }
+            else
+            {
+                LogService.LogWarning("未找到向日葵客户端，请手动配置路径");
             }
         }
-        
+
         /// <summary>
         /// 启动向日葵客户端
         /// </summary>
@@ -152,32 +161,32 @@ namespace SunloginManager.Services
                 };
 
                 Process process = await Task.Run(() => Process.Start(startInfo));
-                
+
                 if (process != null)
                 {
                     LogService.LogInfo($"向日葵进程已启动，PID: {process.Id}");
                     return true;
                 }
-                
+
                 LogService.LogError("启动向日葵失败");
                 return false;
             }
             catch (Exception ex)
             {
-                LogService.LogError($"启动向日葵时出错: {ex.Message}", ex);
+                LogService.LogError($"启动向日葵时出错：{ex.Message}", ex);
                 return false;
             }
         }
-        
+
         /// <summary>
         /// 自动输入识别码和连接码
         /// </summary>
         private async Task<bool> AutoInputCodesAsync(RemoteConnection connection)
         {
             LogService.LogInfo("===== 开始自动输入识别码和连接码 =====");
-            LogService.LogInfo($"目标识别码: {connection.IdentificationCode}");
-            LogService.LogInfo($"目标连接码: {connection.ConnectionCode}");
-            
+            LogService.LogInfo($"目标识别码：{connection.IdentificationCode}");
+            LogService.LogInfo($"目标连接码：{connection.ConnectionCode}");
+
             try
             {
                 // 查找向日葵窗口
@@ -212,10 +221,10 @@ namespace SunloginManager.Services
                 // 按回车确认
                 await KeyboardInputHelper.SendEnterKeyAsync();
                 LogService.LogInfo("回车键发送成功");
-                
+
                 // 处理验证码（如果需要）
                 await HandleVerificationCodeAsync(connection, sunloginWindow);
-                
+
                 await Task.Delay(1000);
 
                 LogService.LogInfo("===== 自动输入完成 =====");
@@ -223,69 +232,69 @@ namespace SunloginManager.Services
             }
             catch (Exception ex)
             {
-                LogService.LogError($"自动输入时出错: {ex.Message}", ex);
+                LogService.LogError($"自动输入时出错：{ex.Message}", ex);
                 return false;
             }
         }
-        
+
         /// <summary>
         /// 输入识别码
         /// </summary>
         private async Task InputIdentificationCodeAsync(string identificationCode)
         {
-            LogService.LogInfo($"开始输入识别码: {identificationCode}");
-            
+            LogService.LogInfo($"开始输入识别码：{identificationCode}");
+
             // 清空输入框
             await KeyboardInputHelper.ClearInputAsync();
-            
+
             // 输入识别码
             await KeyboardInputHelper.SendTextAsync(identificationCode);
             LogService.LogInfo("识别码输入完成");
-            
+
             await Task.Delay(TimingConstants.INPUT_COMPLETE_DELAY);
         }
-        
+
         /// <summary>
         /// 切换到连接码输入框
         /// </summary>
         private async Task SwitchToConnectionCodeInputAsync(IntPtr sunloginWindow)
         {
-            LogService.LogInfo("按Tab键切换到连接码输入框");
-            
+            LogService.LogInfo("按 Tab 键切换到连接码输入框");
+
             // 等待识别码输入完成
             await Task.Delay(TimingConstants.TAB_KEY_DELAY);
-            
+
             // 强制激活窗口
             await WindowManagerHelper.ForceActivateWindowAsync(sunloginWindow);
-            
-            // 发送Tab键
+
+            // 发送 Tab 键
             await KeyboardInputHelper.SendTabKeyAsync();
-            LogService.LogInfo("Tab键已发送，等待焦点切换");
-            
+            LogService.LogInfo("Tab 键已发送，等待焦点切换");
+
             // 等待焦点切换完成
             await Task.Delay(TimingConstants.TAB_KEY_DELAY);
         }
-        
+
         /// <summary>
         /// 输入连接码
         /// </summary>
         private async Task InputConnectionCodeAsync(string connectionCode)
         {
-            LogService.LogInfo($"开始输入连接码: {connectionCode} (向日葵使用WebView，焦点在网页内部)");
-            
+            LogService.LogInfo($"开始输入连接码：{connectionCode} (向日葵使用 WebView，焦点在网页内部)");
+
             // 等待焦点切换
             await Task.Delay(TimingConstants.INPUT_COMPLETE_DELAY);
-            
+
             // 清空输入框
             await KeyboardInputHelper.ClearInputAsync();
-            
+
             // 输入连接码
             await KeyboardInputHelper.SendTextAsync(connectionCode);
             LogService.LogInfo("连接码输入完成");
-            
+
             await Task.Delay(TimingConstants.INPUT_COMPLETE_DELAY);
         }
-        
+
         /// <summary>
         /// 处理验证码输入
         /// </summary>
@@ -294,10 +303,10 @@ namespace SunloginManager.Services
             // 等待验证码界面出现
             LogService.LogInfo("等待验证码界面出现...");
             await Task.Delay(TimingConstants.VERIFICATION_WAIT_DELAY);
-            
+
             // 简单检查（大多数情况不需要验证码）
             bool needsVerificationCode = await CheckIfVerificationCodeNeededAsync(sunloginWindow);
-            
+
             if (needsVerificationCode && !string.IsNullOrEmpty(connection.VerificationCode))
             {
                 LogService.LogInfo("检测到需要输入验证码");
@@ -308,7 +317,7 @@ namespace SunloginManager.Services
                 LogService.LogInfo("未检测到需要输入验证码");
             }
         }
-        
+
         /// <summary>
         /// 检查是否需要输入验证码
         /// </summary>
@@ -318,52 +327,52 @@ namespace SunloginManager.Services
             {
                 LogService.LogInfo("检查是否需要输入验证码");
                 await Task.Delay(1000);
-                
+
                 // 简化版：大多数情况下不需要验证码
                 LogService.LogInfo("验证码检查完成");
                 return false;
             }
             catch (Exception ex)
             {
-                LogService.LogError($"检查验证码时出错: {ex.Message}");
+                LogService.LogError($"检查验证码时出错：{ex.Message}");
                 return false;
             }
         }
-        
+
         /// <summary>
         /// 输入验证码
         /// </summary>
         private async Task InputVerificationCodeAsync(string verificationCode)
         {
-            LogService.LogInfo($"使用配置的验证码: {verificationCode}");
-            
+            LogService.LogInfo($"使用配置的验证码：{verificationCode}");
+
             // 等待验证码界面加载
             await Task.Delay(TimingConstants.VERIFICATION_LOAD_DELAY);
-            
-            // 发送Tab键切换到验证码输入框
-            LogService.LogInfo("发送Tab键切换到验证码输入框");
+
+            // 发送 Tab 键切换到验证码输入框
+            LogService.LogInfo("发送 Tab 键切换到验证码输入框");
             for (int i = 0; i < 2; i++)
             {
                 await KeyboardInputHelper.SendTabKeyAsync();
                 await Task.Delay(300);
             }
-            
+
             await Task.Delay(TimingConstants.INPUT_COMPLETE_DELAY);
-            
+
             // 清空并输入验证码
             LogService.LogInfo("开始输入验证码");
             await KeyboardInputHelper.ClearInputAsync();
             await KeyboardInputHelper.SendTextAsync(verificationCode);
             LogService.LogInfo("验证码输入完成");
-            
+
             await Task.Delay(TimingConstants.INPUT_COMPLETE_DELAY);
-            
+
             // 按回车确认
             LogService.LogInfo("按回车键确认验证码");
             await KeyboardInputHelper.SendEnterKeyAsync();
             LogService.LogInfo("验证码确认回车键发送成功");
         }
-        
+
         #endregion
     }
 }

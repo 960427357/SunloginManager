@@ -108,5 +108,11 @@ namespace SunloginManager.Models
         {
             return Name;
         }
+
+        /// <summary>
+        /// 分组名称（用于 UI 绑定，不从数据库读取）
+        /// </summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string GroupName { get; set; } = "未分组";
     }
 }

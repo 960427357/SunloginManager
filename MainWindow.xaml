@@ -411,21 +411,26 @@
                                 </GridViewColumn>
                                 
                                 <!-- 操作列 -->
-                                <GridViewColumn Width="120">
+                                <GridViewColumn Width="160">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal">
-                                                <Button Style="{StaticResource TableButtonStyle}" 
+                                                <Button Style="{StaticResource TableButtonStyle}"
                                                         ToolTip="连接"
                                                         Click="ConnectFromTableButton_Click">
                                                     <TextBlock Text="&#xE8A7;" FontFamily="Segoe MDL2 Assets"/>
                                                 </Button>
-                                                <Button Style="{StaticResource TableButtonStyle}" 
+                                                <Button Style="{StaticResource TableButtonStyle}"
+                                                        ToolTip="分享"
+                                                        Click="ShareFromTableButton_Click">
+                                                    <TextBlock Text="&#xE72D;" FontFamily="Segoe MDL2 Assets"/>
+                                                </Button>
+                                                <Button Style="{StaticResource TableButtonStyle}"
                                                         ToolTip="编辑"
                                                         Click="EditFromTableButton_Click">
                                                     <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets"/>
                                                 </Button>
-                                                <Button Style="{StaticResource TableButtonStyle}" 
+                                                <Button Style="{StaticResource TableButtonStyle}"
                                                         ToolTip="删除"
                                                         Click="DeleteFromTableButton_Click">
                                                     <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"/>
@@ -483,6 +488,7 @@
                     </ScrollViewer>
                     
                     <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+                        <Button x:Name="ShareButton" Content="分享" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,10,0" Click="ShareButton_Click"/>
                         <Button Content="编辑" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,10,0" Click="EditFromDetailsButton_Click"/>
                         <Button Content="删除" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Background="#FF3B30" Click="DeleteFromDetailsButton_Click"/>
                     </StackPanel>
@@ -501,7 +507,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 
-                <TextBlock Grid.Column="0" x:Name="StatusTextBlock" Text="就绪" VerticalAlignment="Center" Margin="20,0" FontSize="14" Foreground="#8E8E93"/>
+                <TextBlock Grid.Column="0" x:Name="StatusTextBlock" Text="" VerticalAlignment="Center" Margin="20,0" FontSize="14" Foreground="#8E8E93"/>
                 <Button Grid.Column="1" Content="查看日志" Style="{StaticResource AppleButtonStyle}" Width="100" Height="35" Margin="0,0,10,0" Click="ViewLogsButton_Click"/>
             </Grid>
         </Border>

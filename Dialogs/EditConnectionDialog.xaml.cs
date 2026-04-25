@@ -59,21 +59,46 @@ namespace SunloginManager
                 NameTextBox.Focus();
                 return;
             }
-            
+
             if (string.IsNullOrWhiteSpace(IdentificationCodeTextBox.Text))
             {
                 System.Windows.MessageBox.Show("请输入识别码", "输入错误", MessageBoxButton.OK, MessageBoxImage.Warning);
                 IdentificationCodeTextBox.Focus();
                 return;
             }
-            
+
             if (string.IsNullOrWhiteSpace(ConnectionCodePasswordBox.Password))
             {
                 System.Windows.MessageBox.Show("请输入连接码", "输入错误", MessageBoxButton.OK, MessageBoxImage.Warning);
                 ConnectionCodePasswordBox.Focus();
                 return;
             }
-            
+
+            // 立即保存到数据库
+            try
+            {
+                _originalConnection.Name = NameTextBox.Text.Trim();
+                _originalConnection.IdentificationCode = IdentificationCodeTextBox.Text.Trim();
+                _originalConnection.ConnectionCode = ConnectionCodePasswordBox.Password.Trim();
+
+                int groupId = 1;
+                if (GroupComboBox.SelectedValue != null)
+                {
+                    groupId = (int)GroupComboBox.SelectedValue;
+                }
+                _originalConnection.GroupId = groupId;
+
+                _originalConnection.Remarks = NotesTextBox.Text.Trim();
+
+                // 保存到数据库
+                _dataService.SaveConnection(_originalConnection);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"保存失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             DialogResult = true;
             Close();
         }

@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -75,7 +76,7 @@ namespace SunloginManager
             };
             _statusTimer.Tick += (sender, e) =>
             {
-                StatusTextBlock.Text = "就绪";
+                StatusTextBlock.Text = $"共 {Connections.Count} 个连接";
                 _statusTimer.Stop();
             };
             
@@ -495,6 +496,67 @@ namespace SunloginManager
                 UpdateStatusText($"已删除连接: {connection.Name}");
             }
         }
+
+        // 分享按钮点击事件（详情面板）
+        private void ShareButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (SelectedConnection != null)
+            {
+                ShareConnection(SelectedConnection);
+            }
+            else
+            {
+                UpdateStatusText("请先选择一个连接");
+            }
+        }
+
+        // 表格中的分享按钮点击事件
+        private void ShareFromTableButton_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as System.Windows.Controls.Button;
+            if (button?.DataContext is RemoteConnection connection)
+            {
+                ShareConnection(connection);
+            }
+        }
+
+        // 分享连接信息
+        private void ShareConnection(RemoteConnection connection)
+        {
+            try
+            {
+                // 构建分享文本
+                var shareText = new StringBuilder();
+                shareText.AppendLine($"【向日葵远程连接】");
+                shareText.AppendLine($"名称：{connection.Name}");
+                shareText.AppendLine($"识别码：{connection.IdentificationCode}");
+                shareText.AppendLine($"连接码：{connection.ConnectionCode}");
+                if (!string.IsNullOrEmpty(connection.Remarks))
+                {
+                    shareText.AppendLine($"备注：{connection.Remarks}");
+                }
+
+                // 复制到剪贴板（忽略剪贴板被占用的异常）
+                try
+                {
+                    System.Windows.Clipboard.SetText(shareText.ToString());
+                }
+                catch (System.Runtime.InteropServices.COMException)
+                {
+                    // 剪贴板被其他进程占用，重试一次
+                    System.Threading.Thread.Sleep(100);
+                    System.Windows.Clipboard.SetText(shareText.ToString());
+                }
+
+                UpdateStatusText("连接信息已复制到剪贴板");
+                LogService.LogInfo($"已分享连接：{connection.Name}");
+            }
+            catch (Exception ex)
+            {
+                UpdateStatusText($"分享失败：{ex.Message}");
+                LogService.LogError($"分享连接失败：{ex.Message}", ex);
+            }
+        }
         
         // 更新状态文本
         private void UpdateStatusText(string message)
@@ -522,7 +584,7 @@ namespace SunloginManager
             GroupFilterComboBox.SelectedIndex = 0;
         }
 
-        private void LoadConnections()
+        public void LoadConnections()
         {
             Connections.Clear();
             var connections = _dataService.GetAllConnections();

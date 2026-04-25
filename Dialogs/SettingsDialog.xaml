@@ -106,6 +106,15 @@
             <TextBlock Text="日志设置" Margin="5,5,5,5" FontWeight="Medium"/>
             <CheckBox x:Name="EnableLoggingCheckBox" Content="启用日志记录" IsChecked="True" Margin="5"/>
         </StackPanel>
+
+        <StackPanel Grid.Row="3" Margin="0,0,0,15">
+            <TextBlock Text="批量管理" Margin="5,5,5,5" FontWeight="Medium"/>
+            <StackPanel Orientation="Horizontal" Margin="5,0,0,0">
+                <Button x:Name="ImportButton" Content="导入 CSV" Style="{StaticResource AppleButtonStyle}" Width="120" Height="35" Click="ImportButton_Click" Margin="5,0,5,0"/>
+                <Button x:Name="ExportButton" Content="导出 CSV" Style="{StaticResource AppleButtonStyle}" Width="120" Height="35" Click="ExportButton_Click" Margin="5,0,5,0"/>
+                <Button x:Name="BulkManageButton" Content="批量管理..." Style="{StaticResource AppleButtonStyle}" Width="120" Height="35" Click="BulkManageButton_Click" Margin="5,0,5,0"/>
+            </StackPanel>
+        </StackPanel>
         
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
         </StackPanel>
