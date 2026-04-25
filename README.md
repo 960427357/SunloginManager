@@ -1,7 +1,7 @@
 # 向日葵远程连接管理器 (SunloginManager)
 
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/songtay/SunloginManager)
-![GitHub license](https://img.shields.io/github/license/songtay/SunloginManager)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/960427357/SunloginManager)
+![GitHub license](https://img.shields.io/github/license/960427357/SunloginManager)
 ![.NET](https://img.shields.io/badge/.NET-8.0-purple.svg)
 ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey)
 
@@ -54,6 +54,14 @@
 - **数据持久化**：JSON 格式存储，易于备份
 - **自动迁移**：旧数据自动升级为新格式
 - **系统托盘**：最小化到系统托盘，后台运行
+
+### ⭐ v2.0 新增功能
+- **双击连接**：双击列表项直接连接
+- **收藏功能**：星标标记常用连接
+- **连接历史**：记录每次连接的起止时间和时长
+- **连接统计**：成功率、最常使用 TOP5、7天/30天统计
+- **连接测试**：验证识别码格式和客户端状态
+- **时长监控**：自动检测可见窗口，连接结束时自动记录时长
 
 ## 📸 界面预览
 
@@ -314,14 +322,14 @@ SunloginManager/
 ## 🎯 未来计划
 
 ### 功能增强
+- [x] 双击连接：双击列表项直接连接
+- [x] 连接历史：记录连接历史和统计
+- [x] 连接统计：统计连接次数和时长
+- [x] 收藏功能：标记常用连接
+- [x] 连接测试：测试连接是否可用
 - [ ] 批量操作：批量删除、移动分组
 - [ ] 导入/导出：支持数据导入导出（明文备份）
 - [ ] 快捷键：常用操作的快捷键支持
-- [ ] 双击连接：双击列表项直接连接
-- [ ] 连接历史：记录连接历史和统计
-- [ ] 连接统计：统计连接次数和时长
-- [ ] 收藏功能：标记常用连接
-- [ ] 连接测试：测试连接是否可用
 
 ### 安全增强
 - [ ] 主密码：应用启动时需要输入主密码
@@ -369,6 +377,14 @@ SunloginManager/
 - 感谢开源社区的支持
 
 ## 📝 更新日志
+
+### v2.0.0 (2026-04-26)
+- 🖱️ 双击列表项直接连接
+- ⭐ 收藏功能（星标标记常用连接）
+- 📜 连接历史记录（记录每次连接的起止时间和时长）
+- 📊 连接统计窗口（成功率、最常使用 TOP5、7天/30天统计）
+- 🧪 连接测试功能（验证识别码格式和客户端状态）
+- ⏱️ 时长自动监控（基于可见窗口标题匹配，连接结束时自动记录时长）
 
 ### v1.0.0 (2024-12-05)
 - 🎉 初始版本发布
