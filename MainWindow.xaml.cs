@@ -34,6 +34,9 @@ namespace SunloginManager
         private RemoteConnection? _selectedConnection;
         private TextBlock? _searchPlaceholderControl;
         private DispatcherTimer _statusTimer;
+        private DispatcherTimer? _autoLockTimer;
+        private bool _isLocked;
+        private bool _lockPasswordVisible;
         private const uint WM_SHOWWINDOW_CUSTOM = 0x0400 + 1;
         
         public ObservableCollection<RemoteConnection> Connections { get; set; }
@@ -100,7 +103,15 @@ namespace SunloginManager
             SearchTextBox.GotFocus += SearchTextBox_GotFocus;
             SearchTextBox.LostFocus += SearchTextBox_LostFocus;
             SearchTextBox.TextChanged += SearchTextBox_TextChanged;
-            
+
+            // 快捷键处理
+            this.PreviewKeyDown += MainWindow_PreviewKeyDown;
+
+            // 自动锁定处理
+            this.PreviewMouseMove += MainWindow_PreviewMouseMove;
+
+            InitializeAutoLock();
+
             // 添加窗口消息处理
             this.SourceInitialized += MainWindow_SourceInitialized;
         }
@@ -129,7 +140,125 @@ namespace SunloginManager
             }
             return IntPtr.Zero;
         }
-        
+
+        #region 快捷键处理
+
+        private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            // 如果焦点在 TextBox/ComboBox 等输入控件内，不触发快捷键
+            var focused = Keyboard.FocusedElement as UIElement;
+            if (focused is System.Windows.Controls.TextBox || focused is System.Windows.Controls.PasswordBox || focused is System.Windows.Controls.ComboBox)
+                return;
+
+            // 必须有选中的连接
+            if (ConnectionsListView.SelectedItem is not RemoteConnection conn)
+                return;
+
+            var shortcuts = _dataService.GetShortcutsSettings();
+            foreach (var shortcut in shortcuts.GetAll())
+            {
+                if (!shortcut.IsEnabled) continue;
+                if (!MatchesShortcut(shortcut, e)) continue;
+
+                e.Handled = true;
+                ExecuteShortcutAction(shortcut.ActionName, conn);
+                break;
+            }
+        }
+
+        private bool MatchesShortcut(KeyboardShortcutConfig shortcut, System.Windows.Input.KeyEventArgs e)
+        {
+            System.Windows.Input.Key targetKey;
+            try { targetKey = (System.Windows.Input.Key)Enum.Parse(typeof(System.Windows.Input.Key), shortcut.Key); }
+            catch { return false; }
+
+            System.Windows.Input.ModifierKeys targetModifiers = System.Windows.Input.ModifierKeys.None;
+            if (!string.IsNullOrEmpty(shortcut.Modifiers))
+            {
+                try { targetModifiers = (System.Windows.Input.ModifierKeys)Enum.Parse(typeof(System.Windows.Input.ModifierKeys), shortcut.Modifiers); }
+                catch { }
+            }
+
+            if (e.Key != targetKey) return false;
+            System.Windows.Input.ModifierKeys currentModifiers = System.Windows.Input.Keyboard.Modifiers;
+            return currentModifiers == targetModifiers;
+        }
+
+        private async void ExecuteShortcutAction(string actionName, RemoteConnection conn)
+        {
+            try
+            {
+                string textToCopy = actionName switch
+                {
+                    "CopyIdentificationCode" => conn.IdentificationCode,
+                    "CopyConnectionCode" => conn.ConnectionCode,
+                    "CopyRemarks" => string.IsNullOrEmpty(conn.Remarks) ? "无" : conn.Remarks,
+                    "CopyAllInfo" => FormatConnectionInfo(conn),
+                    _ => null
+                };
+
+                if (string.IsNullOrEmpty(textToCopy))
+                {
+                    UpdateStatusText("复制失败：内容为空");
+                    return;
+                }
+
+                // 异步设置剪贴板，带重试机制
+                bool success = await SetClipboardTextAsync(textToCopy);
+
+                string displayName = actionName switch
+                {
+                    "CopyIdentificationCode" => "识别码",
+                    "CopyConnectionCode" => "连接码",
+                    "CopyRemarks" => "备注",
+                    "CopyAllInfo" => "全部信息",
+                    _ => actionName
+                };
+
+                UpdateStatusText(success ? $"已复制: {displayName} 到剪贴板" : "复制失败：剪贴板被占用");
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"快捷键复制失败: {ex.Message}");
+                UpdateStatusText("复制失败");
+            }
+        }
+
+        private string FormatConnectionInfo(RemoteConnection conn)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"名称: {conn.Name}");
+            sb.AppendLine($"识别码: {conn.IdentificationCode}");
+            sb.AppendLine($"连接码: {conn.ConnectionCode}");
+            if (!string.IsNullOrEmpty(conn.Remarks))
+                sb.AppendLine($"备注: {conn.Remarks}");
+            sb.AppendLine($"分组: {conn.GroupName}");
+            sb.AppendLine($"状态: {(conn.IsEnabled ? "已启用" : "已禁用")}");
+            sb.AppendLine($"收藏: {(conn.IsFavorite ? "是" : "否")}");
+            if (conn.LastConnectedAt != default)
+                sb.AppendLine($"最后连接: {conn.LastConnectedAt:yyyy-MM-dd HH:mm:ss}");
+            return sb.ToString();
+        }
+
+        private async Task<bool> SetClipboardTextAsync(string text)
+        {
+            for (int i = 0; i < 5; i++)
+            {
+                try
+                {
+                    System.Windows.Clipboard.SetText(text);
+                    return true;
+                }
+                catch
+                {
+                    await Task.Delay(50);
+                }
+            }
+            return false;
+        }
+
+        #endregion
+
         private void ShowAndActivateWindow()
         {
             try
@@ -925,10 +1054,148 @@ namespace SunloginManager
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
-        
+
         protected virtual void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+
+        #region 自动锁定
+
+        private void InitializeAutoLock()
+        {
+            int minutes = _dataService.GetAutoLockMinutes();
+            if (minutes <= 0)
+                return;
+
+            _autoLockTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMinutes(minutes)
+            };
+            _autoLockTimer.Tick += (sender, e) => TriggerLock();
+            _autoLockTimer.Start();
+        }
+
+        private void MainWindow_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (!_isLocked)
+                ResetAutoLockTimer();
+        }
+
+        private void ResetAutoLockTimer()
+        {
+            if (_autoLockTimer == null) return;
+            _autoLockTimer.Stop();
+            _autoLockTimer.Start();
+        }
+
+        private void TriggerLock()
+        {
+            if (_isLocked || _autoLockTimer == null) return;
+            _isLocked = true;
+            _autoLockTimer.Stop();
+
+            LockErrorText.Visibility = Visibility.Collapsed;
+            LockPasswordBox.Password = string.Empty;
+            LockPasswordTextBox.Text = string.Empty;
+            LockOverlay.Visibility = Visibility.Visible;
+            LockPasswordBox.Focus();
+
+            LogService.LogInfo("屏幕已自动锁定");
+        }
+
+        private void LockEyeButton_Click(object sender, RoutedEventArgs e)
+        {
+            _lockPasswordVisible = !_lockPasswordVisible;
+            if (_lockPasswordVisible)
+            {
+                LockPasswordTextBox.Text = LockPasswordBox.Password;
+                LockPasswordBox.Visibility = Visibility.Collapsed;
+                LockPasswordTextBox.Visibility = Visibility.Visible;
+                LockPasswordTextBox.Focus();
+            }
+            else
+            {
+                LockPasswordBox.Password = LockPasswordTextBox.Text;
+                LockPasswordBox.Visibility = Visibility.Visible;
+                LockPasswordTextBox.Visibility = Visibility.Collapsed;
+                LockPasswordBox.Focus();
+            }
+        }
+
+        private void LockPasswordBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+                UnlockScreen();
+        }
+
+        private void LockUnlockButton_Click(object sender, RoutedEventArgs e)
+        {
+            UnlockScreen();
+        }
+
+        private void UnlockScreen()
+        {
+            string password = LockPasswordBox.Visibility == Visibility.Visible
+                ? LockPasswordBox.Password
+                : LockPasswordTextBox.Text;
+
+            if (_dataService.VerifyMasterPassword(password))
+            {
+                _isLocked = false;
+                LockOverlay.Visibility = Visibility.Collapsed;
+                LockErrorText.Visibility = Visibility.Collapsed;
+                _lockPasswordVisible = false;
+                LockPasswordBox.Visibility = Visibility.Visible;
+                LockPasswordTextBox.Visibility = Visibility.Collapsed;
+                _autoLockTimer?.Start();
+                LogService.LogInfo("屏幕已解锁");
+            }
+            else
+            {
+                LockErrorText.Text = "密码错误";
+                LockErrorText.Visibility = Visibility.Visible;
+                LockPasswordBox.Password = string.Empty;
+                LockPasswordTextBox.Text = string.Empty;
+                LockPasswordBox.Focus();
+            }
+        }
+
+        private void LockExitButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (MessageBox.Show("确定要退出程序吗？", "退出确认", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            {
+                if (App.Current is App app && app._notifyIcon != null)
+                {
+                    app._notifyIcon.Visible = false;
+                    app._notifyIcon.Dispose();
+                }
+                Environment.Exit(0);
+            }
+        }
+
+        /// <summary>
+        /// 窗口从托盘恢复显时调用
+        /// </summary>
+        public void OnWindowShown()
+        {
+            LogService.LogInfo("OnWindowShown 调用");
+            if (_autoLockTimer != null && !_isLocked)
+            {
+                _autoLockTimer.Stop();
+                _autoLockTimer.Start();
+            }
+        }
+
+        /// <summary>
+        /// 窗口隐藏到托盘时调用
+        /// </summary>
+        public void OnWindowHidden()
+        {
+            LogService.LogInfo("OnWindowHidden 调用");
+            _autoLockTimer?.Stop();
+        }
+
+        #endregion
     }
 }

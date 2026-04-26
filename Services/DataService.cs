@@ -693,6 +693,126 @@ namespace SunloginManager.Services
                 LogService.LogError($"保存设置失败: {ex.Message}", ex);
             }
         }
+
+        #region 快捷键设置
+
+        /// <summary>
+        /// 获取快捷键配置
+        /// </summary>
+        public ShortcutsSettings GetShortcutsSettings()
+        {
+            try
+            {
+                var settings = LoadSettings();
+                return settings.Shortcuts ?? new ShortcutsSettings();
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"获取快捷键设置失败: {ex.Message}", ex);
+                return new ShortcutsSettings();
+            }
+        }
+
+        /// <summary>
+        /// 保存快捷键配置
+        /// </summary>
+        public void SaveShortcutsSettings(ShortcutsSettings shortcuts)
+        {
+            try
+            {
+                var settings = LoadSettings();
+                settings.Shortcuts = shortcuts;
+                SaveSettings(settings);
+                LogService.LogInfo("已保存快捷键配置");
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"保存快捷键设置失败: {ex.Message}", ex);
+            }
+        }
+
+        #endregion
+
+        #region 安全设置
+
+        /// <summary>
+        /// 是否已设置主密码
+        /// </summary>
+        public bool HasMasterPassword()
+        {
+            var settings = LoadSettings();
+            return !string.IsNullOrEmpty(settings.MasterPasswordHash);
+        }
+
+        /// <summary>
+        /// 设置主密码
+        /// </summary>
+        public void SetMasterPassword(string password)
+        {
+            var settings = LoadSettings();
+            string salt = EncryptionService.GenerateSalt();
+            settings.MasterPasswordHash = EncryptionService.HashPassword(password, salt);
+            settings.PasswordSalt = salt;
+            SaveSettings(settings);
+            LogService.LogInfo("主密码已设置");
+        }
+
+        /// <summary>
+        /// 验证主密码
+        /// </summary>
+        public bool VerifyMasterPassword(string password)
+        {
+            var settings = LoadSettings();
+            if (string.IsNullOrEmpty(settings.MasterPasswordHash) || string.IsNullOrEmpty(settings.PasswordSalt))
+                return false;
+            return EncryptionService.VerifyPassword(password, settings.MasterPasswordHash, settings.PasswordSalt);
+        }
+
+        /// <summary>
+        /// 修改主密码
+        /// </summary>
+        public bool ChangeMasterPassword(string currentPassword, string newPassword)
+        {
+            if (!VerifyMasterPassword(currentPassword))
+                return false;
+            SetMasterPassword(newPassword);
+            LogService.LogInfo("主密码已更改");
+            return true;
+        }
+
+        /// <summary>
+        /// 移除主密码
+        /// </summary>
+        public void RemoveMasterPassword()
+        {
+            var settings = LoadSettings();
+            settings.MasterPasswordHash = null;
+            settings.PasswordSalt = null;
+            SaveSettings(settings);
+            LogService.LogInfo("主密码已移除");
+        }
+
+        /// <summary>
+        /// 获取自动锁定时间（分钟，0 = 关闭）
+        /// </summary>
+        public int GetAutoLockMinutes()
+        {
+            var settings = LoadSettings();
+            return settings.AutoLockMinutes;
+        }
+
+        /// <summary>
+        /// 设置自动锁定时间（分钟，0 = 关闭）
+        /// </summary>
+        public void SetAutoLockMinutes(int minutes)
+        {
+            var settings = LoadSettings();
+            settings.AutoLockMinutes = Math.Max(0, minutes);
+            SaveSettings(settings);
+            LogService.LogInfo($"自动锁定已设置为 {(minutes == 0 ? "关闭" : minutes + "分钟")}");
+        }
+
+        #endregion
     }
 
     /// <summary>
@@ -701,5 +821,9 @@ namespace SunloginManager.Services
     public class AppSettings
     {
         public string SunloginPath { get; set; } = string.Empty;
+        public ShortcutsSettings Shortcuts { get; set; } = new ShortcutsSettings();
+        public string? MasterPasswordHash { get; set; }
+        public string? PasswordSalt { get; set; }
+        public int AutoLockMinutes { get; set; } = 0;
     }
 }

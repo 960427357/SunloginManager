@@ -5,11 +5,11 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:SunloginManager"
         mc:Ignorable="d"
-        Title="设置" Height="400" Width="600"
+        Title="设置" Height="480" Width="620"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="#F5F5F7">
-    
+
     <Window.Resources>
         <Style x:Key="AppleButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="White"/>
@@ -17,8 +17,8 @@
             <Setter Property="BorderBrush" Value="#007AFF"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="Margin" Value="5"/>
             <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -37,8 +37,34 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        
-        <!-- 苹果风格文本框样式 -->
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#007AFF"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#007AFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="20,8"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#0056CC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="AppleTextBoxStyle" TargetType="TextBox">
             <Setter Property="Background" Value="White"/>
             <Setter Property="Foreground" Value="Black"/>
@@ -77,51 +103,131 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="SectionCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="15"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
     </Window.Resources>
-    
+
     <Grid Margin="20">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        
-        <TextBlock Grid.Row="0" Text="应用设置" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,20"/>
-        
-        <StackPanel Grid.Row="1" Margin="0,0,0,15">
-            <TextBlock Text="向日葵安装目录" Margin="5,5,5,5" FontWeight="Medium"/>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBox x:Name="SunloginPathTextBox" Grid.Column="0" Style="{StaticResource AppleTextBoxStyle}" Height="45"/>
-                <Button x:Name="BrowseButton" Grid.Column="1" Content="浏览..." Style="{StaticResource AppleButtonStyle}" Width="80" Height="45" Click="BrowseButton_Click"/>
-            </Grid>
-        </StackPanel>
-        
-        <StackPanel Grid.Row="2" Margin="0,0,0,15">
-            <TextBlock Text="日志设置" Margin="5,5,5,5" FontWeight="Medium"/>
-            <CheckBox x:Name="EnableLoggingCheckBox" Content="启用日志记录" IsChecked="True" Margin="5"/>
-        </StackPanel>
 
-        <StackPanel Grid.Row="3" Margin="0,0,0,15">
-            <TextBlock Text="批量管理" Margin="5,5,5,5" FontWeight="Medium"/>
-            <StackPanel Orientation="Horizontal" Margin="5,0,0,0">
-                <Button x:Name="ImportButton" Content="导入 CSV" Style="{StaticResource AppleButtonStyle}" Width="120" Height="35" Click="ImportButton_Click" Margin="5,0,5,0"/>
-                <Button x:Name="ExportButton" Content="导出 CSV" Style="{StaticResource AppleButtonStyle}" Width="120" Height="35" Click="ExportButton_Click" Margin="5,0,5,0"/>
-                <Button x:Name="BulkManageButton" Content="批量管理..." Style="{StaticResource AppleButtonStyle}" Width="120" Height="35" Click="BulkManageButton_Click" Margin="5,0,5,0"/>
+        <!-- 标题 -->
+        <TextBlock Grid.Row="0" Text="设置" FontSize="22" FontWeight="SemiBold"
+                   Foreground="#1A1A1A" Margin="0,0,0,15"/>
+
+        <!-- 内容区域（可滚动） -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,15">
+            <StackPanel>
+                <!-- 应用设置 -->
+                <Border Style="{StaticResource SectionCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="应用设置" FontSize="15" FontWeight="SemiBold" Foreground="#1A1A1A" Margin="0,0,0,10"/>
+                        <TextBlock Text="向日葵安装目录" FontSize="12" Foreground="#8E8E93" Margin="0,0,0,5"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="SunloginPathTextBox" Grid.Column="0" Style="{StaticResource AppleTextBoxStyle}" Height="40" Margin="0,0,10,0"/>
+                            <Button x:Name="BrowseButton" Grid.Column="1" Content="浏览" Style="{StaticResource AppleButtonStyle}" Width="70" Height="40" Click="BrowseButton_Click"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 日志设置 -->
+                <Border Style="{StaticResource SectionCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="日志设置" FontSize="15" FontWeight="SemiBold" Foreground="#1A1A1A" Margin="0,0,0,10"/>
+                        <CheckBox x:Name="EnableLoggingCheckBox" Content="启用日志记录" IsChecked="True"
+                                  FontSize="13" Foreground="#3A3A3C" Margin="0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 安全设置 -->
+                <Border Style="{StaticResource SectionCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="安全设置" FontSize="15" FontWeight="SemiBold" Foreground="#1A1A1A" Margin="0,0,0,10"/>
+
+                        <!-- 主密码 -->
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="主密码" FontSize="13" Foreground="#3A3A3C" VerticalAlignment="Center"/>
+                            <Button x:Name="ChangePasswordButton" Grid.Column="1" Content="修改密码" Style="{StaticResource AppleButtonStyle}" Width="100" Height="34" Click="ChangePasswordButton_Click" Margin="0,0,8,0"/>
+                            <Button x:Name="RemovePasswordButton" Grid.Column="2" Content="移除密码" Width="100" Height="34" Click="RemovePasswordButton_Click" Margin="0,0,0,0">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="#FF3B30" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#D63028"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Grid>
+
+                        <!-- 自动锁定 -->
+                        <Grid Margin="0,0,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="自动锁定" FontSize="13" Foreground="#3A3A3C" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="AutoLockComboBox" Grid.Column="1" Width="140" Height="34"
+                                      FontSize="13" Background="White" Foreground="Black"
+                                      BorderBrush="#D1D1D6" BorderThickness="1" Padding="8,0">
+                                <ComboBoxItem Content="关闭" Tag="0"/>
+                                <ComboBoxItem Content="5 分钟" Tag="5"/>
+                                <ComboBoxItem Content="10 分钟" Tag="10"/>
+                                <ComboBoxItem Content="15 分钟" Tag="15"/>
+                                <ComboBoxItem Content="30 分钟" Tag="30"/>
+                                <ComboBoxItem Content="60 分钟" Tag="60"/>
+                            </ComboBox>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 批量管理 -->
+                <Border Style="{StaticResource SectionCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="批量管理" FontSize="15" FontWeight="SemiBold" Foreground="#1A1A1A" Margin="0,0,0,10"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Button x:Name="ImportButton" Content="导入 CSV" Style="{StaticResource AppleButtonStyle}" Width="120" Height="36" Click="ImportButton_Click" Margin="5,0"/>
+                            <Button x:Name="ExportButton" Content="导出 CSV" Style="{StaticResource AppleButtonStyle}" Width="120" Height="36" Click="ExportButton_Click" Margin="5,0"/>
+                            <Button x:Name="BulkManageButton" Content="批量管理" Style="{StaticResource AppleButtonStyle}" Width="120" Height="36" Click="BulkManageButton_Click" Margin="5,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- 高级设置 -->
+                <Border Style="{StaticResource SectionCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="高级" FontSize="15" FontWeight="SemiBold" Foreground="#1A1A1A" Margin="0,0,0,10"/>
+                        <Button x:Name="ShortcutSettingsButton" Content="键盘快捷键" Style="{StaticResource AppleButtonStyle}" Width="150" Height="36" Click="ShortcutSettingsButton_Click" Margin="0,0,5,0"/>
+                    </StackPanel>
+                </Border>
             </StackPanel>
-        </StackPanel>
-        
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
-        </StackPanel>
-        
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="CancelButton" Content="取消" Style="{StaticResource AppleButtonStyle}" Width="100" Height="35" Click="CancelButton_Click"/>
-            <Button x:Name="OKButton" Content="确定" Style="{StaticResource AppleButtonStyle}" Width="100" Height="35" Click="OKButton_Click"/>
+        </ScrollViewer>
+
+        <!-- 底部按钮 -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="CancelButton" Content="取消" Style="{StaticResource AppleButtonStyle}" Width="100" Height="36" Click="CancelButton_Click" Margin="0,0,10,0"/>
+            <Button x:Name="OKButton" Content="确定" Style="{StaticResource PrimaryButtonStyle}" Width="100" Height="36" Click="OKButton_Click"/>
         </StackPanel>
     </Grid>
 </Window>

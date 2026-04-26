@@ -127,5 +127,35 @@ namespace SunloginManager.Services
                 LogService.LogError($"文件解密失败: {ex.Message}", ex);
             }
         }
+        /// <summary>
+        /// 生成随机盐（32 字节，Base64 编码）
+        /// </summary>
+        public static string GenerateSalt()
+        {
+            byte[] salt = new byte[32];
+            using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+            rng.GetBytes(salt);
+            return Convert.ToBase64String(salt);
+        }
+
+        /// <summary>
+        /// 使用 SHA256 + Salt 哈希密码
+        /// </summary>
+        public static string HashPassword(string password, string salt)
+        {
+            using var sha256 = System.Security.Cryptography.SHA256.Create();
+            byte[] inputBytes = System.Text.Encoding.UTF8.GetBytes(password + salt);
+            byte[] hashBytes = sha256.ComputeHash(inputBytes);
+            return Convert.ToBase64String(hashBytes);
+        }
+
+        /// <summary>
+        /// 验证密码
+        /// </summary>
+        public static bool VerifyPassword(string password, string storedHash, string salt)
+        {
+            string computedHash = HashPassword(password, salt);
+            return computedHash == storedHash;
+        }
     }
 }

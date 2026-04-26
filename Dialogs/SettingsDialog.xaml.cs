@@ -16,8 +16,9 @@ namespace SunloginManager
 {
     public partial class SettingsDialog : Window
     {
-        private string _sunloginPath;
+        private string _sunloginPath = string.Empty;
         private bool _enableLogging;
+        private int _autoLockMinutes;
 
         public string SunloginPath => _sunloginPath;
         public bool EnableLogging => _enableLogging;
@@ -68,6 +69,18 @@ namespace SunloginManager
             // 更新 UI
             SunloginPathTextBox.Text = _sunloginPath;
             EnableLoggingCheckBox.IsChecked = _enableLogging;
+
+            // 加载安全设置
+            var ds = new DataService();
+            _autoLockMinutes = ds.GetAutoLockMinutes();
+            foreach (System.Windows.Controls.ComboBoxItem item in AutoLockComboBox.Items)
+            {
+                if (item.Tag.ToString() == _autoLockMinutes.ToString())
+                {
+                    AutoLockComboBox.SelectedItem = item;
+                    break;
+                }
+            }
         }
 
         private void SaveSettings()
@@ -181,6 +194,34 @@ namespace SunloginManager
             catch (Exception ex)
             {
                 System.Windows.MessageBox.Show($"打开批量管理失败：{ex.Message}\n\n{ex.StackTrace}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void ShortcutSettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new ShortcutSettingsDialog();
+            dialog.Owner = this;
+            dialog.ShowDialog();
+        }
+
+        private void ChangePasswordButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new PasswordDialog(PasswordDialogMode.Change);
+            dialog.Owner = this;
+            if (dialog.ShowDialog() == true)
+            {
+                MessageBox.Show("密码修改成功", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private void RemovePasswordButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (MessageBox.Show("确定要移除主密码吗？\n移除后启动应用将不再需要密码验证。", "移除主密码",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+            {
+                var ds = new DataService();
+                ds.RemoveMasterPassword();
+                MessageBox.Show("主密码已移除", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -424,6 +465,14 @@ namespace SunloginManager
         {
             _sunloginPath = SunloginPathTextBox.Text.Trim();
             _enableLogging = EnableLoggingCheckBox.IsChecked ?? true;
+
+            // 保存自动锁定设置
+            var ds = new DataService();
+            if (AutoLockComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem selectedItem &&
+                int.TryParse(selectedItem.Tag.ToString(), out int minutes))
+            {
+                ds.SetAutoLockMinutes(minutes);
+            }
 
             // 验证向日葵路径
             if (!string.IsNullOrEmpty(_sunloginPath) && !File.Exists(_sunloginPath))

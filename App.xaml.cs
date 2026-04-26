@@ -29,7 +29,9 @@ namespace SunloginManager
 
         private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
         {
-            Services.LogService.LogError($"未处理的异常：{e.Exception.Message}", e.Exception);
+            string log = $"[{DateTime.Now}] UNHANDLED {e.Exception.GetType().Name}: {e.Exception.Message}\n{e.Exception.StackTrace}\n";
+            File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash.log"), log);
+            Services.LogService.LogError($"Dispatcher异常: {e.Exception.Message}", e.Exception);
             e.Handled = true;
         }
 
@@ -80,25 +82,68 @@ namespace SunloginManager
             
             // 初始化系统托盘
             InitializeSystemTray();
-            
-            // 创建主窗口
-            _mainWindow = new MainWindow();
-            
-            // 处理窗口关闭事件，改为最小化到托盘
-            _mainWindow.Closing += (sender, e) =>
+
+            // === 主密码验证 ===
+            var dataService = new Services.DataService();
+            try
             {
-                e.Cancel = true; // 取消关闭事件
-                _mainWindow.Hide(); // 隐藏窗口
-                _mainWindow.ShowInTaskbar = false; // 从任务栏隐藏
-                
-                // 显示通知提示
-                if (_notifyIcon != null)
+                if (!dataService.HasMasterPassword())
                 {
-                    _notifyIcon.ShowBalloonTip(2000, "向日葵远程连接管理器", "应用程序已最小化到系统托盘", ToolTipIcon.Info);
+                    dataService.SetMasterPassword("123456");
                 }
-            };
-            
-            _mainWindow.Show();
+                else
+                {
+                    var loginDialog = new PasswordDialog(PasswordDialogMode.Login);
+                    loginDialog.Topmost = true;
+                    loginDialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
+                    if (loginDialog.ShowDialog() != true)
+                    {
+                        Environment.Exit(0);
+                        return;
+                    }
+                    Services.LogService.LogInfo("密码验证通过");
+                }
+            }
+            catch (Exception ex)
+            {
+                Services.LogService.LogError($"密码验证异常: {ex.Message}", ex);
+                Environment.Exit(0);
+                return;
+            }
+
+            try
+            {
+                Services.LogService.LogInfo("开始创建主窗口");
+                _mainWindow = new MainWindow();
+                Services.LogService.LogInfo("主窗口创建成功");
+
+                _mainWindow.Closing += (sender, e) =>
+                {
+                    Services.LogService.LogInfo($"Closing事件触发: e.Cancel前={e.Cancel}");
+                    e.Cancel = true;
+                    _mainWindow.Hide();
+                    _mainWindow.ShowInTaskbar = false;
+                    _mainWindow.OnWindowHidden();
+                    Services.LogService.LogInfo("窗口已隐藏（关闭到托盘）");
+
+                    if (_notifyIcon != null)
+                    {
+                        _notifyIcon.ShowBalloonTip(2000, "向日葵远程连接管理器", "应用程序已最小化到系统托盘", ToolTipIcon.Info);
+                    }
+                };
+
+                Services.LogService.LogInfo("调用 Show()");
+                _mainWindow.Show();
+                _mainWindow.Activate();
+                Services.LogService.LogInfo("主窗口已显示");
+            }
+            catch (Exception ex)
+            {
+                Services.LogService.LogError($"主窗口异常: {ex.Message}", ex);
+                System.Windows.MessageBox.Show($"启动失败: {ex.Message}\n\n{ex.StackTrace}", "错误",
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                Environment.Exit(1);
+            }
         }
         
         private void InitializeSystemTray()
@@ -159,25 +204,25 @@ namespace SunloginManager
         {
             if (_mainWindow != null)
             {
-                // 如果窗口已经关闭，重新创建
                 if (!_mainWindow.IsLoaded)
                 {
                     _mainWindow = new MainWindow();
-                    
-                    // 重新设置窗口关闭事件
+
                     _mainWindow.Closing += (sender, e) =>
                     {
-                        e.Cancel = true; // 取消关闭事件
-                        _mainWindow.Hide(); // 隐藏窗口
-                        _mainWindow.ShowInTaskbar = false; // 从任务栏隐藏
-                        
-                        // 显示通知提示
+                        e.Cancel = true;
+                        _mainWindow.Hide();
+                        _mainWindow.ShowInTaskbar = false;
+                        _mainWindow.OnWindowHidden();
+
                         if (_notifyIcon != null)
                         {
                             _notifyIcon.ShowBalloonTip(2000, "向日葵远程连接管理器", "应用程序已最小化到系统托盘", ToolTipIcon.Info);
                         }
                     };
                 }
+
+                _mainWindow.OnWindowShown();
                 
                 // 确保窗口显示在任务栏和屏幕上
                 _mainWindow.ShowInTaskbar = true;

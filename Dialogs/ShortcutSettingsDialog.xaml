@@ -1,0 +1,152 @@
+<Window x:Class="SunloginManager.ShortcutSettingsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:SunloginManager"
+        mc:Ignorable="d"
+        Title="快捷键设置" Height="420" Width="650"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="#F5F5F7">
+
+    <Window.Resources>
+        <Style x:Key="AppleButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#007AFF"/>
+            <Setter Property="BorderBrush" Value="#007AFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#F0F8FF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#007AFF"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#007AFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="20,8"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#0056CC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题 -->
+        <TextBlock Grid.Row="0" Text="键盘快捷键" FontSize="20" FontWeight="SemiBold"
+                   Foreground="#1A1A1A" Margin="0,0,0,15"/>
+
+        <!-- 快捷键列表 -->
+        <Border Grid.Row="1" Background="White" CornerRadius="10" Padding="0">
+            <ListView x:Name="ShortcutListView" BorderThickness="0" Background="Transparent">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                        <Setter Property="BorderBrush" Value="#F0F0F0"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListViewItem">
+                                    <Border Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="15,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="80"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 操作名称和描述 -->
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding DisplayName}" FontSize="14" FontWeight="Medium" Foreground="#1A1A1A"/>
+                                <TextBlock Text="{Binding Description}" FontSize="12" Foreground="#8E8E93" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <!-- 当前快捷键显示 -->
+                            <Border Grid.Column="1" Background="#F5F5F7" CornerRadius="4"
+                                    Padding="8,4" Margin="10,0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock x:Name="ShortcutKeyText" Text="{Binding KeyDisplay}"
+                                           FontSize="13" FontWeight="Medium" Foreground="#3A3A3C"
+                                           HorizontalAlignment="Center"/>
+                            </Border>
+
+                            <!-- 编辑按钮 -->
+                            <Button Grid.Column="2" Content="编辑" Style="{StaticResource AppleButtonStyle}"
+                                    Margin="5,0" Padding="10,4" FontSize="12"
+                                    Click="EditButton_Click" Tag="{Binding}"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Border>
+
+        <!-- 提示信息 -->
+        <TextBlock Grid.Row="2" x:Name="StatusText" FontSize="12" Foreground="#8E8E93"
+                   Margin="0,10,0,10"/>
+
+        <!-- 底部按钮 -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="恢复默认" Style="{StaticResource AppleButtonStyle}"
+                    Click="RestoreDefaultsButton_Click" Margin="0,0,10,0"/>
+            <Button Content="取消" Style="{StaticResource AppleButtonStyle}"
+                    Click="CancelButton_Click" Margin="0,0,10,0"/>
+            <Button Content="确定" Style="{StaticResource PrimaryButtonStyle}"
+                    Click="OKButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>
