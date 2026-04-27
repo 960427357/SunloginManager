@@ -37,6 +37,8 @@ namespace SunloginManager
         private TextBlock? _searchPlaceholderControl;
         private DispatcherTimer _statusTimer;
         private DispatcherTimer? _autoLockTimer;
+        private string _currentSortColumn = "";
+        private bool _sortAscending = true;
         private bool _isLocked;
         private bool _lockPasswordVisible;
         private const uint WM_SHOWWINDOW_CUSTOM = 0x0400 + 1;
@@ -590,16 +592,26 @@ namespace SunloginManager
                     shareText.AppendLine($"备注：{connection.Remarks}");
                 }
 
-                // 复制到剪贴板（忽略剪贴板被占用的异常）
-                try
+                // 复制到剪贴板（剪贴板被占用时重试）
+                bool clipboardSuccess = false;
+                for (int i = 0; i < 3; i++)
                 {
-                    System.Windows.Clipboard.SetText(shareText.ToString());
+                    try
+                    {
+                        System.Windows.Clipboard.SetText(shareText.ToString());
+                        clipboardSuccess = true;
+                        break;
+                    }
+                    catch (System.Runtime.InteropServices.COMException)
+                    {
+                        System.Threading.Thread.Sleep(200);
+                    }
                 }
-                catch (System.Runtime.InteropServices.COMException)
+                if (!clipboardSuccess)
                 {
-                    // 剪贴板被其他进程占用，重试一次
-                    System.Threading.Thread.Sleep(100);
-                    System.Windows.Clipboard.SetText(shareText.ToString());
+                    UpdateStatusText("分享失败：无法访问剪贴板");
+                    LogService.LogWarning("复制失败：剪贴板被其他程序占用");
+                    return;
                 }
 
                 UpdateStatusText("连接信息已复制到剪贴板");
@@ -695,10 +707,117 @@ namespace SunloginManager
                 return false;
             };
         }
-        
+
+        private void SortConnections(string column)
+        {
+            if (_currentSortColumn == column)
+            {
+                _sortAscending = !_sortAscending;
+            }
+            else
+            {
+                _currentSortColumn = column;
+                _sortAscending = true;
+            }
+
+            var view = CollectionViewSource.GetDefaultView(Connections);
+            var connections = view.Cast<RemoteConnection>().ToList();
+
+            switch (column)
+            {
+                case "Name":
+                    connections = _sortAscending
+                        ? connections.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ToList()
+                        : connections.OrderByDescending(c => c.Name, StringComparer.OrdinalIgnoreCase).ToList();
+                    break;
+                case "LastConnectedAt":
+                    connections = _sortAscending
+                        ? connections.OrderBy(c => c.LastConnectedAt).ToList()
+                        : connections.OrderByDescending(c => c.LastConnectedAt).ToList();
+                    break;
+                default:
+                    return;
+            }
+
+            Connections.Clear();
+            foreach (var conn in connections)
+            {
+                Connections.Add(conn);
+            }
+            FilterConnections();
+        }
+
         private void RefreshConnectionList()
         {
             LoadConnections();
+        }
+
+        private void GridViewColumnHeader_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.GridViewColumnHeader header && header.Tag is string column)
+            {
+                // 更新所有列的排序箭头
+                foreach (var child in GetColumnHeaders(header))
+                {
+                    var arrow = FindSortArrow(child);
+                    if (arrow != null) arrow.Visibility = Visibility.Collapsed;
+                }
+
+                // 设置当前列的箭头
+                var currentArrow = FindSortArrow(header);
+                if (currentArrow != null)
+                {
+                    currentArrow.Visibility = Visibility.Visible;
+                    currentArrow.Text = _sortAscending ? "▲" : "▼";
+                }
+
+                SortConnections(column);
+            }
+        }
+
+        private System.Collections.Generic.IEnumerable<System.Windows.Controls.GridViewColumnHeader> GetColumnHeaders(System.Windows.Controls.GridViewColumnHeader clicked)
+        {
+            var headers = new System.Collections.Generic.List<System.Windows.Controls.GridViewColumnHeader>();
+            var parent = FindVisualParent<System.Windows.Controls.ListView>(clicked);
+            if (parent != null)
+            {
+                var presenter = FindVisualChild<System.Windows.Controls.Primitives.UniformGrid>(parent);
+                if (presenter != null)
+                {
+                    foreach (var child in presenter.Children)
+                    {
+                        if (child is System.Windows.Controls.GridViewColumnHeader h)
+                            headers.Add(h);
+                    }
+                }
+            }
+            return headers;
+        }
+
+        private TextBlock? FindSortArrow(System.Windows.Controls.GridViewColumnHeader header)
+        {
+            var template = header.Template;
+            return template?.FindName("SortArrow", header) as TextBlock;
+        }
+
+        private T? FindVisualParent<T>(DependencyObject obj) where T : DependencyObject
+        {
+            var parent = VisualTreeHelper.GetParent(obj);
+            if (parent == null) return null;
+            if (parent is T t) return t;
+            return FindVisualParent<T>(parent);
+        }
+
+        private T? FindVisualChild<T>(DependencyObject obj) where T : DependencyObject
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++)
+            {
+                var child = VisualTreeHelper.GetChild(obj, i);
+                if (child is T t) return t;
+                var found = FindVisualChild<T>(child);
+                if (found != null) return found;
+            }
+            return null;
         }
         
         private void ConnectionsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)

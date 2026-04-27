@@ -138,6 +138,10 @@ namespace SunloginManager.Services
                     return (false, null);
                 }
 
+                // 更新最后连接时间
+                connection.LastConnectedAt = DateTime.Now;
+                LogService.LogInfo($"连接成功，已更新最后连接时间：{connection.LastConnectedAt}");
+
                 // 等待连接窗口出现（确认连接已建立）
                 LogService.LogInfo("等待远程连接窗口出现...");
                 var sw = System.Diagnostics.Stopwatch.StartNew();

@@ -300,15 +300,94 @@
             </Setter>
         </Style>
 
-        <!-- 右键菜单样式 -->
-        <ContextMenu x:Key="ConnectionContextMenu">
-            <MenuItem Header="收藏" Click="ContextToggleFavorite_Click"/>
-            <MenuItem Header="连接" Click="ContextConnect_Click"/>
-            <MenuItem Header="测试连接" Click="ContextTestConnect_Click"/>
-            <MenuItem Header="编辑" Click="ContextEdit_Click"/>
-            <MenuItem Header="分享" Click="ContextShare_Click"/>
-            <Separator/>
-            <MenuItem Header="删除" Click="ContextDelete_Click"/>
+        <!-- 苹果风格右键菜单样式 -->
+        <Style x:Key="AppleContextMenuStyle" TargetType="ContextMenu">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="12"
+                                Padding="{TemplateBinding Padding}"
+                                MinWidth="180">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#000000" Opacity="0.15" ShadowDepth="0" BlurRadius="20"/>
+                            </Border.Effect>
+                            <ItemsPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 苹果风格菜单项样式 -->
+        <Style x:Key="AppleMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#1D1D1F"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Regular"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}"
+                                Margin="{TemplateBinding Margin}">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{TemplateBinding Icon}" FontSize="14" Width="22" Margin="0,0,8,0" TextAlignment="Center"/>
+                                <TextBlock Text="{TemplateBinding Header}" FontSize="{TemplateBinding FontSize}"
+                                           Foreground="{TemplateBinding Foreground}" FontWeight="{TemplateBinding FontWeight}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#E8F0FE"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#D0E2FF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 删除菜单项样式（红色文字） -->
+        <Style x:Key="AppleDeleteMenuItemStyle" TargetType="MenuItem" BasedOn="{StaticResource AppleMenuItemStyle}">
+            <Setter Property="Foreground" Value="#FF3B30"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FFF0EE"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 苹果风格分隔线样式 -->
+        <Style x:Key="AppleMenuSeparatorStyle" TargetType="Separator">
+            <Setter Property="Margin" Value="10,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Separator">
+                        <Border Background="#E5E5E5" Height="1" CornerRadius="1"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 右键菜单 -->
+        <ContextMenu x:Key="ConnectionContextMenu" Style="{StaticResource AppleContextMenuStyle}">
+            <MenuItem Header="收藏" Click="ContextToggleFavorite_Click" Style="{StaticResource AppleMenuItemStyle}" Icon="⭐"/>
+            <MenuItem Header="连接" Click="ContextConnect_Click" Style="{StaticResource AppleMenuItemStyle}" Icon="🔗"/>
+            <MenuItem Header="测试连接" Click="ContextTestConnect_Click" Style="{StaticResource AppleMenuItemStyle}" Icon="🧪"/>
+            <MenuItem Header="编辑" Click="ContextEdit_Click" Style="{StaticResource AppleMenuItemStyle}" Icon="✏️"/>
+            <MenuItem Header="分享" Click="ContextShare_Click" Style="{StaticResource AppleMenuItemStyle}" Icon="📤"/>
+            <Separator Style="{StaticResource AppleMenuSeparatorStyle}"/>
+            <MenuItem Header="删除" Click="ContextDelete_Click" Style="{StaticResource AppleDeleteMenuItemStyle}" Icon="🗑️"/>
         </ContextMenu>
     </Window.Resources>
     
@@ -382,6 +461,38 @@
                     </StackPanel>
                     
                     <ListView x:Name="ConnectionsListView" Grid.Row="2" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled" ItemsSource="{Binding Connections}" ItemContainerStyle="{StaticResource TableRowStyle}" PreviewMouseDoubleClick="ConnectionsListView_MouseDoubleClick" PreviewMouseLeftButtonDown="ConnectionsListView_PreviewMouseLeftButtonDown" MouseRightButtonDown="ConnectionsListView_MouseRightButtonDown" ContextMenu="{StaticResource ConnectionContextMenu}">
+                        <ListView.Resources>
+                            <Style x:Key="SortableHeaderStyle" TargetType="GridViewColumnHeader">
+                                <Setter Property="Background" Value="#F5F5F7"/>
+                                <Setter Property="Foreground" Value="#1D1D1F"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="BorderBrush" Value="#E5E5E5"/>
+                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="GridViewColumnHeader">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <ContentPresenter VerticalAlignment="Center"/>
+                                                    <TextBlock x:Name="SortArrow" Visibility="Collapsed" Margin="4,0,0,0" FontSize="10"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#EBEBEF"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListView.Resources>
                         <ListView.View>
                             <GridView>
                                 <!-- 收藏列 -->
@@ -405,7 +516,11 @@
                                 </GridViewColumn>
                                 
                                 <!-- 名称列 -->
-                                <GridViewColumn Header="名称" Width="150" DisplayMemberBinding="{Binding Name}"/>
+                                <GridViewColumn Width="150" DisplayMemberBinding="{Binding Name}">
+                                    <GridViewColumn.Header>
+                                        <GridViewColumnHeader Content="名称" Style="{StaticResource SortableHeaderStyle}" Tag="Name" Click="GridViewColumnHeader_Click"/>
+                                    </GridViewColumn.Header>
+                                </GridViewColumn>
                                 
                                 <!-- 识别码列 -->
                                 <GridViewColumn Header="识别码" Width="120">
@@ -426,7 +541,10 @@
                                 </GridViewColumn>
                                 
                                 <!-- 最后连接时间列 -->
-                                <GridViewColumn Header="最后连接" Width="180">
+                                <GridViewColumn Width="180">
+                                    <GridViewColumn.Header>
+                                        <GridViewColumnHeader Content="最后连接" Style="{StaticResource SortableHeaderStyle}" Tag="LastConnectedAt" Click="GridViewColumnHeader_Click"/>
+                                    </GridViewColumn.Header>
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding LastConnectedAt, StringFormat='yyyy-MM-dd HH:mm'}"/>

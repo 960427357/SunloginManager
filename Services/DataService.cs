@@ -757,6 +757,14 @@ namespace SunloginManager.Services
         }
 
         /// <summary>
+        /// 获取设置（用于启动时密码验证逻辑）
+        /// </summary>
+        public AppSettings GetSettingsForStartup()
+        {
+            return LoadSettings();
+        }
+
+        /// <summary>
         /// 设置主密码
         /// </summary>
         public void SetMasterPassword(string password)
@@ -765,6 +773,7 @@ namespace SunloginManager.Services
             string salt = EncryptionService.GenerateSalt();
             settings.MasterPasswordHash = EncryptionService.HashPassword(password, salt);
             settings.PasswordSalt = salt;
+            settings.PasswordManuallyRemoved = false;
             SaveSettings(settings);
             LogService.LogInfo("主密码已设置");
         }
@@ -800,6 +809,7 @@ namespace SunloginManager.Services
             var settings = LoadSettings();
             settings.MasterPasswordHash = null;
             settings.PasswordSalt = null;
+            settings.PasswordManuallyRemoved = true;
             SaveSettings(settings);
             LogService.LogInfo("主密码已移除");
         }
@@ -837,5 +847,6 @@ namespace SunloginManager.Services
         public string? MasterPasswordHash { get; set; }
         public string? PasswordSalt { get; set; }
         public int AutoLockMinutes { get; set; } = 0;
+        public bool PasswordManuallyRemoved { get; set; } = false;
     }
 }

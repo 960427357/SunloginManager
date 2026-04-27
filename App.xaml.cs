@@ -87,21 +87,33 @@ namespace SunloginManager
             var dataService = new Services.DataService();
             try
             {
-                if (!dataService.HasMasterPassword())
+                var settings = dataService.GetSettingsForStartup();
+                if (settings.PasswordManuallyRemoved || !string.IsNullOrEmpty(settings.MasterPasswordHash))
                 {
-                    dataService.SetMasterPassword("123456");
+                    // 用户主动移除了密码，不再要求密码
+                    if (settings.PasswordManuallyRemoved && string.IsNullOrEmpty(settings.MasterPasswordHash))
+                    {
+                        Services.LogService.LogInfo("用户已移除主密码，跳过密码验证");
+                    }
+                    else
+                    {
+                        // 有密码但未设置自动跳过，需要验证
+                        var loginDialog = new PasswordDialog(PasswordDialogMode.Login);
+                        loginDialog.Topmost = true;
+                        loginDialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
+                        if (loginDialog.ShowDialog() != true)
+                        {
+                            Environment.Exit(0);
+                            return;
+                        }
+                        Services.LogService.LogInfo("密码验证通过");
+                    }
                 }
                 else
                 {
-                    var loginDialog = new PasswordDialog(PasswordDialogMode.Login);
-                    loginDialog.Topmost = true;
-                    loginDialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
-                    if (loginDialog.ShowDialog() != true)
-                    {
-                        Environment.Exit(0);
-                        return;
-                    }
-                    Services.LogService.LogInfo("密码验证通过");
+                    // 首次启动，设置默认密码
+                    dataService.SetMasterPassword("123456");
+                    Services.LogService.LogInfo("已设置默认主密码");
                 }
             }
             catch (Exception ex)
