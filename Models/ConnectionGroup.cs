@@ -38,9 +38,19 @@ namespace SunloginManager.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         /// <summary>
+        /// 是否为收藏分组
+        /// </summary>
+        public bool IsFavoriteGroup { get; set; }
+
+        /// <summary>
         /// 是否为默认分组
         /// </summary>
         public bool IsDefault { get; set; }
+
+        /// <summary>
+        /// 是否受保护（不可删除）
+        /// </summary>
+        public bool IsProtected => IsDefault || IsFavoriteGroup;
 
         /// <summary>
         /// 重写ToString方法，返回分组名称

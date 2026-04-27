@@ -190,6 +190,7 @@
                             <TextBlock Grid.Column="0" Text="自动锁定" FontSize="13" Foreground="#3A3A3C" VerticalAlignment="Center"/>
                             <ComboBox x:Name="AutoLockComboBox" Grid.Column="1" Width="140" Height="34"
                                       FontSize="13" Background="White" Foreground="Black"
+                                      VerticalContentAlignment="Center"
                                       BorderBrush="#D1D1D6" BorderThickness="1" Padding="8,0">
                                 <ComboBoxItem Content="关闭" Tag="0"/>
                                 <ComboBoxItem Content="5 分钟" Tag="5"/>

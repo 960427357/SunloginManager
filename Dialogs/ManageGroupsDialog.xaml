@@ -229,7 +229,7 @@
                                                 Click="DeleteGroupButton_Click"
                                                 Tag="{Binding}"
                                                 Style="{StaticResource DeleteButtonStyle}"
-                                                Visibility="{Binding IsDefault, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                                Visibility="{Binding IsProtected, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
                                     </StackPanel>
                                 </Grid>
                             </DataTemplate>

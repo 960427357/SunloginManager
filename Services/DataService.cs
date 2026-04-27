@@ -198,8 +198,20 @@ namespace SunloginManager.Services
                         IsDefault = true
                     };
                     groups.Add(defaultGroup);
+
+                    var favoriteGroup = new ConnectionGroup
+                    {
+                        Id = 2,
+                        Name = "收藏",
+                        Description = "收藏的连接",
+                        Color = "#FF9500",
+                        SortOrder = 1,
+                        IsFavoriteGroup = true
+                    };
+                    groups.Add(favoriteGroup);
+
                     SaveGroups(groups);
-                    LogService.LogInfo("已创建默认分组");
+                    LogService.LogInfo("已创建默认分组和收藏分组");
                 }
             }
             catch (Exception ex)
@@ -283,9 +295,9 @@ namespace SunloginManager.Services
                 var groups = LoadGroups();
                 var group = groups.Find(g => g.Id == groupId);
                 
-                if (group != null && group.IsDefault)
+                if (group != null && (group.IsDefault || group.IsFavoriteGroup))
                 {
-                    LogService.LogWarning("不能删除默认分组");
+                    LogService.LogWarning(group.IsDefault ? "不能删除默认分组" : "不能删除收藏分组");
                     return;
                 }
                 

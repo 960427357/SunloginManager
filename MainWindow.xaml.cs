@@ -29,6 +29,8 @@ namespace SunloginManager
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
         private readonly DataService _dataService;
+        private int _favoriteGroupId = 0;
+        private int _defaultGroupId = 1;
         private readonly SunloginService _sunloginService;
         private readonly HistoryService _historyService;
         private RemoteConnection? _selectedConnection;
@@ -624,14 +626,20 @@ namespace SunloginManager
         private void LoadGroups()
         {
             var groups = _dataService.GetAllGroups();
-            
+
+            // 查找收藏分组和默认分组的ID
+            var favoriteGroup = groups.FirstOrDefault(g => g.IsFavoriteGroup);
+            _favoriteGroupId = favoriteGroup?.Id ?? 0;
+            var defaultGroup = groups.FirstOrDefault(g => g.IsDefault);
+            _defaultGroupId = defaultGroup?.Id ?? 1;
+
             // 添加"所有分组"选项
             var allGroups = new System.Collections.Generic.List<ConnectionGroup>
             {
                 new ConnectionGroup { Id = 0, Name = "所有分组" }
             };
             allGroups.AddRange(groups);
-            
+
             GroupFilterComboBox.ItemsSource = allGroups;
             GroupFilterComboBox.SelectedIndex = 0;
         }
@@ -665,7 +673,16 @@ namespace SunloginManager
                 if (item is RemoteConnection connection)
                 {
                     // 分组过滤
-                    bool groupMatch = selectedGroupId == 0 || connection.GroupId == selectedGroupId;
+                    bool groupMatch;
+                    if (selectedGroupId == _favoriteGroupId)
+                    {
+                        // 收藏分组显示所有标记为收藏的连接
+                        groupMatch = connection.IsFavorite;
+                    }
+                    else
+                    {
+                        groupMatch = selectedGroupId == 0 || connection.GroupId == selectedGroupId;
+                    }
                     
                     // 搜索过滤
                     bool searchMatch = string.IsNullOrWhiteSpace(searchText) ||
@@ -942,6 +959,19 @@ namespace SunloginManager
         public void ToggleFavorite(RemoteConnection connection)
         {
             connection.IsFavorite = !connection.IsFavorite;
+            if (connection.IsFavorite)
+            {
+                // 收藏时移到收藏分组
+                if (_favoriteGroupId > 0)
+                {
+                    connection.GroupId = _favoriteGroupId;
+                }
+            }
+            else
+            {
+                // 取消收藏时移回默认分组
+                connection.GroupId = _defaultGroupId;
+            }
             _dataService.UpdateConnection(connection);
             RefreshConnectionList();
             UpdateStatusText(connection.IsFavorite ? $"已收藏: {connection.Name}" : $"取消收藏: {connection.Name}");
