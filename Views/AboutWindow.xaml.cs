@@ -17,7 +17,7 @@ namespace SunloginManager.Views
             {
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = "https://github.com/songtay",
+                    FileName = "https://github.com/960427357/SunloginManager",
                     UseShellExecute = true
                 });
             }
@@ -25,6 +25,16 @@ namespace SunloginManager.Views
             {
                 System.Windows.MessageBox.Show($"无法打开链接: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = e.Uri.AbsoluteUri,
+                UseShellExecute = true
+            });
+            e.Handled = true;
         }
         
         private void CloseButton_Click(object sender, RoutedEventArgs e)
