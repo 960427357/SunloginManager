@@ -77,6 +77,7 @@ namespace SunloginManager
             _hasMasterPassword = ds.HasMasterPassword();
             ChangePasswordButton.Content = _hasMasterPassword ? "修改密码" : "设置密码";
             RemovePasswordButton.IsEnabled = _hasMasterPassword;
+            UpdateAutoLockUI();
             foreach (System.Windows.Controls.ComboBoxItem item in AutoLockComboBox.Items)
             {
                 if (item.Tag.ToString() == _autoLockMinutes.ToString())
@@ -219,6 +220,7 @@ namespace SunloginManager
                 _hasMasterPassword = true;
                 ChangePasswordButton.Content = "修改密码";
                 RemovePasswordButton.IsEnabled = true;
+                UpdateAutoLockUI();
             }
         }
 
@@ -233,6 +235,7 @@ namespace SunloginManager
                 _hasMasterPassword = false;
                 ChangePasswordButton.Content = "设置密码";
                 RemovePasswordButton.IsEnabled = false;
+                UpdateAutoLockUI();
             }
         }
 
@@ -472,14 +475,35 @@ namespace SunloginManager
             Close();
         }
 
+        /// <summary>
+        /// 根据是否有密码更新自动锁定UI状态
+        /// </summary>
+        private void UpdateAutoLockUI()
+        {
+            if (!_hasMasterPassword)
+            {
+                // 没有密码时：禁用自动锁定，强制选择"关闭"
+                AutoLockComboBox.IsEnabled = false;
+                AutoLockComboBox.SelectedIndex = 0; // 选择"关闭"
+            }
+            else
+            {
+                AutoLockComboBox.IsEnabled = true;
+            }
+        }
+
         private void OKButton_Click(object sender, RoutedEventArgs e)
         {
             _sunloginPath = SunloginPathTextBox.Text.Trim();
             _enableLogging = EnableLoggingCheckBox.IsChecked ?? true;
 
-            // 保存自动锁定设置
+            // 保存自动锁定设置：无密码时强制为0
             var ds = new DataService();
-            if (AutoLockComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem selectedItem &&
+            if (!_hasMasterPassword)
+            {
+                ds.SetAutoLockMinutes(0);
+            }
+            else if (AutoLockComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem selectedItem &&
                 int.TryParse(selectedItem.Tag.ToString(), out int minutes))
             {
                 ds.SetAutoLockMinutes(minutes);
