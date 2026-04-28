@@ -367,8 +367,8 @@ namespace SunloginManager.Services
             // 清空输入框
             await KeyboardInputHelper.ClearInputAsync();
 
-            // 输入识别码
-            await KeyboardInputHelper.SendTextAsync(identificationCode);
+            // 通过剪贴板粘贴输入识别码（比逐字符快）
+            await KeyboardInputHelper.SendTextViaPasteAsync(identificationCode);
             LogService.LogInfo("识别码输入完成");
 
             await Task.Delay(TimingConstants.INPUT_COMPLETE_DELAY);
@@ -381,18 +381,14 @@ namespace SunloginManager.Services
         {
             LogService.LogInfo("按 Tab 键切换到连接码输入框");
 
-            // 等待识别码输入完成
+            // 发送 Tab 键切换焦点
+            await KeyboardInputHelper.SendTabKeyAsync();
             await Task.Delay(TimingConstants.TAB_KEY_DELAY);
 
-            // 强制激活窗口
+            // 确保窗口在前台
             await WindowManagerHelper.ForceActivateWindowAsync(sunloginWindow);
 
-            // 发送 Tab 键
-            await KeyboardInputHelper.SendTabKeyAsync();
             LogService.LogInfo("Tab 键已发送，等待焦点切换");
-
-            // 等待焦点切换完成
-            await Task.Delay(TimingConstants.TAB_KEY_DELAY);
         }
 
         /// <summary>
@@ -400,7 +396,7 @@ namespace SunloginManager.Services
         /// </summary>
         private async Task InputConnectionCodeAsync(string connectionCode)
         {
-            LogService.LogInfo($"开始输入连接码：{connectionCode} (向日葵使用 WebView，焦点在网页内部)");
+            LogService.LogInfo($"开始输入连接码：{connectionCode}");
 
             // 等待焦点切换
             await Task.Delay(TimingConstants.INPUT_COMPLETE_DELAY);
@@ -408,8 +404,8 @@ namespace SunloginManager.Services
             // 清空输入框
             await KeyboardInputHelper.ClearInputAsync();
 
-            // 输入连接码
-            await KeyboardInputHelper.SendTextAsync(connectionCode);
+            // 通过剪贴板粘贴输入连接码（比逐字符快）
+            await KeyboardInputHelper.SendTextViaPasteAsync(connectionCode);
             LogService.LogInfo("连接码输入完成");
 
             await Task.Delay(TimingConstants.INPUT_COMPLETE_DELAY);

@@ -37,6 +37,7 @@ namespace SunloginManager
         private TextBlock? _searchPlaceholderControl;
         private DispatcherTimer _statusTimer;
         private DispatcherTimer? _autoLockTimer;
+        private readonly Dictionary<int, CancellationTokenSource> _activeMonitors = new();
         private string _currentSortColumn = "";
         private bool _sortAscending = true;
         private bool _isLocked;
@@ -149,6 +150,10 @@ namespace SunloginManager
 
         private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
+            // 锁定状态下禁止所有快捷键
+            if (_isLocked)
+                return;
+
             // 如果焦点在 TextBox/ComboBox 等输入控件内，不触发快捷键
             var focused = Keyboard.FocusedElement as UIElement;
             if (focused is System.Windows.Controls.TextBox || focused is System.Windows.Controls.PasswordBox || focused is System.Windows.Controls.ComboBox)
@@ -302,6 +307,7 @@ namespace SunloginManager
         // 刷新按钮点击事件
         private void RefreshButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             RefreshConnectionList();
             UpdateStatusText("连接列表已刷新");
         }
@@ -309,6 +315,7 @@ namespace SunloginManager
         // 设置按钮点击事件
         private void SettingsButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             var dialog = new SettingsDialog();
             if (dialog.ShowDialog() == true)
             {
@@ -321,6 +328,7 @@ namespace SunloginManager
         // 关于按钮点击事件
         private void AboutButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             var aboutWindow = new Views.AboutWindow();
             aboutWindow.Owner = this;
             aboutWindow.ShowDialog();
@@ -329,6 +337,7 @@ namespace SunloginManager
         // 分组管理按钮点击事件
         private void ManageGroupsButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             var dialog = new ManageGroupsDialog();
             dialog.Owner = this;
             if (dialog.ShowDialog() == true)
@@ -347,6 +356,7 @@ namespace SunloginManager
         
         private void ViewLogsButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             try
             {
                 string logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
@@ -372,6 +382,7 @@ namespace SunloginManager
         // 添加连接按钮点击事件
         private void AddConnectionButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             var dialog = new AddConnectionDialog();
             if (dialog.ShowDialog() == true)
             {
@@ -389,6 +400,7 @@ namespace SunloginManager
         // 编辑按钮点击事件
         private void EditButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             var selectedConnection = ConnectionsListView.SelectedItem as RemoteConnection;
             if (selectedConnection != null)
             {
@@ -414,6 +426,7 @@ namespace SunloginManager
         // 删除按钮点击事件
         private void DeleteButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             var selectedConnection = ConnectionsListView.SelectedItem as RemoteConnection;
             if (selectedConnection != null)
             {
@@ -435,6 +448,7 @@ namespace SunloginManager
         // 连接按钮点击事件
         private async void ConnectButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             if (ConnectionsListView.SelectedItem is RemoteConnection connection)
             {
                 await ConnectAndMonitorAsync(connection);
@@ -448,6 +462,7 @@ namespace SunloginManager
         // 从详情面板连接按钮点击事件
         private async void ConnectFromDetailsButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             if (SelectedConnection != null)
             {
                 await ConnectAndMonitorAsync(SelectedConnection);
@@ -461,6 +476,7 @@ namespace SunloginManager
         // 从详情面板编辑按钮点击事件
         private void EditFromDetailsButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             if (SelectedConnection != null)
             {
                 // 打开编辑连接对话框
@@ -485,6 +501,7 @@ namespace SunloginManager
         // 从详情面板删除按钮点击事件
         private void DeleteFromDetailsButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             if (SelectedConnection != null)
             {
                 // 记录删除操作到日志
@@ -505,6 +522,7 @@ namespace SunloginManager
         // 表格中的连接按钮点击事件
         private async void ConnectFromTableButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             if (sender is System.Windows.Controls.Button button && button.DataContext is RemoteConnection connection)
             {
                 await ConnectAndMonitorAsync(connection);
@@ -514,6 +532,7 @@ namespace SunloginManager
         // 表格中的编辑按钮点击事件
         private void EditFromTableButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             // 获取按钮所在的行数据
             var button = sender as System.Windows.Controls.Button;
             if (button?.DataContext is RemoteConnection connection)
@@ -539,6 +558,7 @@ namespace SunloginManager
         // 表格中的删除按钮点击事件
         private void DeleteFromTableButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             // 获取按钮所在的行数据
             var button = sender as System.Windows.Controls.Button;
             if (button?.DataContext is RemoteConnection connection)
@@ -556,6 +576,7 @@ namespace SunloginManager
         // 分享按钮点击事件（详情面板）
         private void ShareButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             if (SelectedConnection != null)
             {
                 ShareConnection(SelectedConnection);
@@ -569,6 +590,7 @@ namespace SunloginManager
         // 表格中的分享按钮点击事件
         private void ShareFromTableButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             var button = sender as System.Windows.Controls.Button;
             if (button?.DataContext is RemoteConnection connection)
             {
@@ -987,6 +1009,7 @@ namespace SunloginManager
         // 双击连接
         private async void ConnectionsListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
+            if (_isLocked) return;
             if (ConnectionsListView.SelectedItem is RemoteConnection connection)
             {
                 await ConnectAndMonitorAsync(connection);
@@ -996,6 +1019,7 @@ namespace SunloginManager
         // 右键菜单 - 阻止默认行为，确保选中项正确
         private void ConnectionsListView_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
+            if (_isLocked) return;
             if (e.Source is FrameworkElement fe && fe.DataContext is RemoteConnection conn)
             {
                 ConnectionsListView.SelectedItem = conn;
@@ -1005,6 +1029,7 @@ namespace SunloginManager
         // 右键菜单 - 连接
         private async void ContextConnect_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             if (ConnectionsListView.SelectedItem is RemoteConnection conn)
             {
                 await ConnectAndMonitorAsync(conn);
@@ -1014,6 +1039,7 @@ namespace SunloginManager
         // 右键菜单 - 切换收藏
         private void ContextToggleFavorite_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             if (ConnectionsListView.SelectedItem is RemoteConnection conn)
             {
                 ToggleFavorite(conn);
@@ -1023,6 +1049,7 @@ namespace SunloginManager
         // 右键菜单 - 测试连接
         private async void ContextTestConnect_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             if (ConnectionsListView.SelectedItem is RemoteConnection conn)
             {
                 UpdateStatusText("正在测试连接...");
@@ -1035,6 +1062,7 @@ namespace SunloginManager
         // 右键菜单 - 编辑
         private void ContextEdit_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             if (ConnectionsListView.SelectedItem is RemoteConnection conn)
             {
                 var dialog = new EditConnectionDialog(conn);
@@ -1054,6 +1082,7 @@ namespace SunloginManager
         // 右键菜单 - 分享
         private void ContextShare_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             if (ConnectionsListView.SelectedItem is RemoteConnection conn)
             {
                 ShareConnection(conn);
@@ -1063,6 +1092,7 @@ namespace SunloginManager
         // 右键菜单 - 删除
         private void ContextDelete_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             if (ConnectionsListView.SelectedItem is RemoteConnection conn)
             {
                 if (MessageBox.Show($"确定要删除连接 '{conn.Name}' 吗？", "确认删除", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
@@ -1112,30 +1142,48 @@ namespace SunloginManager
                     LoadConnections();
                     UpdateStatusText($"已连接到 {connection.Name}");
 
-                    // 异步监控连接窗口关闭，计算时长
-                    {
-                        var startTime = DateTime.Now;
-                        _historyService.RecordStart(connection.Id, connection.Name, connection.IdentificationCode, startTime);
-                        LogService.LogInfo($"开始监控连接时长: {connection.Name}, 识别码: {connection.IdentificationCode}");
+                    // 为每个连接创建独立的监控任务
+                    var startTime = DateTime.Now;
+                    _historyService.RecordStart(connection.Id, connection.Name, connection.IdentificationCode, startTime);
+                    LogService.LogInfo($"开始监控连接时长: {connection.Name}, 识别码: {connection.IdentificationCode}");
 
-                        _ = Task.Run(async () =>
-                        {
-                            try
-                            {
-                                var windowExisted = await WindowManagerHelper.WaitForConnectionSessionAsync(
-                                    connection.IdentificationCode,
-                                    pollIntervalMs: 5000,
-                                    closeTimeoutMs: 3600000); // 最长1小时
-                                var endTime = DateTime.Now;
-                                _historyService.RecordEnd(connection.Id, endTime);
-                                LogService.LogInfo($"连接结束: {connection.Name}, 时长: {endTime - startTime}");
-                            }
-                            catch (Exception ex)
-                            {
-                                LogService.LogError($"监控连接时长异常: {ex.Message}");
-                            }
-                        });
+                    // 如果该连接已有监控，先取消旧任务
+                    if (_activeMonitors.TryGetValue(connection.Id, out var oldCts))
+                    {
+                        oldCts.Cancel();
+                        _activeMonitors.Remove(connection.Id);
                     }
+
+                    var cts = new CancellationTokenSource();
+                    _activeMonitors[connection.Id] = cts;
+
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var windowExisted = await WindowManagerHelper.WaitForConnectionSessionAsync(
+                                connection.IdentificationCode,
+                                cancellationToken: cts.Token,
+                                pollIntervalMs: 10000,
+                                closeTimeoutMs: 3600000);
+                            var endTime = DateTime.Now;
+                            _historyService.RecordEnd(connection.Id, endTime);
+                            LogService.LogInfo($"连接结束: {connection.Name}, 时长: {endTime - startTime}");
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            LogService.LogInfo($"连接监控已取消: {connection.Name}");
+                        }
+                        catch (Exception ex)
+                        {
+                            LogService.LogError($"监控连接时长异常: {connection.Name}, {ex.Message}");
+                        }
+                        finally
+                        {
+                            _activeMonitors.Remove(connection.Id);
+                            cts.Dispose();
+                        }
+                    }, cts.Token);
                 }
                 else
                 {
@@ -1153,6 +1201,7 @@ namespace SunloginManager
         // 顶部栏 - 历史记录
         private void HistoryButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             var dialog = new ConnectionHistoryDialog(_historyService);
             dialog.Owner = this;
             dialog.ShowDialog();
@@ -1161,6 +1210,7 @@ namespace SunloginManager
         // 顶部栏 - 统计
         private void StatsButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             var stats = _historyService.GetStats();
             var dialog = new ConnectionStatsDialog(stats);
             dialog.Owner = this;
@@ -1170,6 +1220,7 @@ namespace SunloginManager
         // 顶部栏 - 测试连接
         private async void TestConnectionButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked) return;
             if (ConnectionsListView.SelectedItem is RemoteConnection conn)
             {
                 UpdateStatusText("正在测试连接...");
@@ -1186,6 +1237,7 @@ namespace SunloginManager
         // 点击收藏星号
         private void ConnectionsListView_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            if (_isLocked) return;
             var element = e.OriginalSource as FrameworkElement;
             if (element?.DataContext is not RemoteConnection conn) return;
 
@@ -1343,6 +1395,13 @@ namespace SunloginManager
         {
             LogService.LogInfo("OnWindowHidden 调用");
             _autoLockTimer?.Stop();
+            // 取消所有连接监控任务
+            foreach (var cts in _activeMonitors.Values)
+            {
+                cts.Cancel();
+                cts.Dispose();
+            }
+            _activeMonitors.Clear();
         }
 
         #endregion

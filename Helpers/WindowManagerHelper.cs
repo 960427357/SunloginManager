@@ -187,7 +187,7 @@ namespace SunloginManager.Helpers
         /// <summary>
         /// 等待连接窗口出现（需稳定存在），然后等待它消失。返回连接是否成功建立。
         /// </summary>
-        public static async Task<bool> WaitForConnectionSessionAsync(string identificationCode, int pollIntervalMs = 5000, int appearTimeoutMs = 30000, int closeTimeoutMs = 3600000)
+        public static async Task<bool> WaitForConnectionSessionAsync(string identificationCode, CancellationToken cancellationToken = default, int pollIntervalMs = 10000, int appearTimeoutMs = 30000, int closeTimeoutMs = 3600000)
         {
             LogService.LogInfo($"开始监控连接会话: 识别码 {identificationCode}");
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -198,6 +198,11 @@ namespace SunloginManager.Helpers
             const int requiredStableCount = 3;
             while (sw.ElapsedMilliseconds < appearTimeoutMs)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    LogService.LogInfo("监控任务已取消");
+                    return false;
+                }
                 var windows = GetOpenWindows();
                 if (windows.Any(w => IsWindowVisible(w.hWnd) && w.title.Replace(" ", "").Contains(identificationCode)))
                 {
@@ -226,6 +231,11 @@ namespace SunloginManager.Helpers
             sw.Restart();
             while (sw.ElapsedMilliseconds < closeTimeoutMs)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    LogService.LogInfo("监控任务已取消（阶段2）");
+                    return true;
+                }
                 var windows = GetOpenWindows();
                 if (!windows.Any(w => IsWindowVisible(w.hWnd) && w.title.Replace(" ", "").Contains(identificationCode)))
                 {
@@ -275,15 +285,37 @@ namespace SunloginManager.Helpers
         private static List<(IntPtr hWnd, string title)> GetOpenWindows()
         {
             var result = new List<(IntPtr, string)>();
-            EnumWindows((hWnd, _) =>
+            try
             {
-                var sb = new System.Text.StringBuilder(256);
-                if (GetWindowText(hWnd, sb, sb.Capacity) > 0)
+                // 使用带超时的线程执行 EnumWindows，防止 RDP 断开时卡住
+                var thread = new System.Threading.Thread(() =>
                 {
-                    result.Add((hWnd, sb.ToString()));
+                    EnumWindows((hWnd, _) =>
+                    {
+                        var sb = new System.Text.StringBuilder(256);
+                        if (GetWindowText(hWnd, sb, sb.Capacity) > 0)
+                        {
+                            lock (result)
+                            {
+                                result.Add((hWnd, sb.ToString()));
+                            }
+                        }
+                        return true;
+                    }, IntPtr.Zero);
+                })
+                { IsBackground = true };
+
+                thread.Start();
+                if (!thread.Join(3000)) // 3秒超时
+                {
+                    LogService.LogWarning("GetOpenWindows 执行超时，可能因 RDP 断开导致阻塞");
+                    return new List<(IntPtr, string)>();
                 }
-                return true;
-            }, IntPtr.Zero);
+            }
+            catch (Exception ex)
+            {
+                LogService.LogError($"GetOpenWindows 异常: {ex.Message}");
+            }
             return result;
         }
 

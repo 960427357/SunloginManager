@@ -58,19 +58,19 @@ namespace SunloginManager.Helpers
         {
             uint ctrlScan = WindowsApiHelper.GetScanCode(KeyboardConstants.VK_CONTROL);
             uint aScan = WindowsApiHelper.GetScanCode(KeyboardConstants.VK_A);
-            
+
             // 按下Ctrl
             WindowsApiHelper.SendKeyEvent(KeyboardConstants.VK_CONTROL, (byte)ctrlScan, 0, 0);
-            await Task.Delay(50);
-            
+            await Task.Delay(10);
+
             // 按下A
             WindowsApiHelper.SendKeyEvent(KeyboardConstants.VK_A, (byte)aScan, 0, 0);
-            await Task.Delay(50);
-            
+            await Task.Delay(10);
+
             // 释放A
             WindowsApiHelper.SendKeyEvent(KeyboardConstants.VK_A, (byte)aScan, KeyboardConstants.KEYEVENTF_KEYUP, 0);
-            await Task.Delay(50);
-            
+            await Task.Delay(10);
+
             // 释放Ctrl
             WindowsApiHelper.SendKeyEvent(KeyboardConstants.VK_CONTROL, (byte)ctrlScan, KeyboardConstants.KEYEVENTF_KEYUP, 0);
         }
@@ -81,14 +81,58 @@ namespace SunloginManager.Helpers
         public static async Task ClearInputAsync()
         {
             LogService.LogInfo("清空输入框");
-            
+
             // Ctrl+A 全选
             await SendSelectAllAsync();
-            await Task.Delay(100);
-            
+            await Task.Delay(50);
+
             // Delete 删除
             await SendDeleteKeyAsync();
             await Task.Delay(TimingConstants.CLEAR_INPUT_DELAY);
+        }
+
+        /// <summary>
+        /// 通过剪贴板粘贴发送文本（比逐字符输入快）
+        /// </summary>
+        public static async Task SendTextViaPasteAsync(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                LogService.LogWarning("SendTextViaPaste: 文本为空，跳过发送");
+                return;
+            }
+
+            LogService.LogInfo($"SendTextViaPaste: 准备粘贴文本 '{text}' (长度: {text.Length})");
+
+            // 复制到剪贴板
+            for (int i = 0; i < 3; i++)
+            {
+                try
+                {
+                    System.Windows.Clipboard.SetText(text);
+                    break;
+                }
+                catch
+                {
+                    await Task.Delay(50);
+                }
+            }
+
+            await Task.Delay(50);
+
+            // 发送 Ctrl+V 粘贴
+            uint ctrlScan = WindowsApiHelper.GetScanCode(KeyboardConstants.VK_CONTROL);
+            uint vScan = WindowsApiHelper.GetScanCode((byte)0x56); // VK_V
+
+            WindowsApiHelper.SendKeyEvent(KeyboardConstants.VK_CONTROL, (byte)ctrlScan, 0, 0);
+            await Task.Delay(10);
+            WindowsApiHelper.SendKeyEvent((byte)0x56, (byte)vScan, 0, 0);
+            await Task.Delay(10);
+            WindowsApiHelper.SendKeyEvent((byte)0x56, (byte)vScan, KeyboardConstants.KEYEVENTF_KEYUP, 0);
+            await Task.Delay(10);
+            WindowsApiHelper.SendKeyEvent(KeyboardConstants.VK_CONTROL, (byte)ctrlScan, KeyboardConstants.KEYEVENTF_KEYUP, 0);
+
+            LogService.LogInfo("SendTextViaPaste: 粘贴完成");
         }
         
         /// <summary>

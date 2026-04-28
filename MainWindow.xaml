@@ -655,7 +655,7 @@
         </Border>
 
         <!-- 锁定覆盖层（隐藏状态） -->
-        <Grid x:Name="LockOverlay" Visibility="Collapsed" Background="#CC000000" Panel.ZIndex="1000">
+        <Grid x:Name="LockOverlay" Visibility="Collapsed" Background="#CC000000" Panel.ZIndex="1000" Focusable="True">
             <Border Background="White" CornerRadius="12" Padding="30,25" Width="350"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
                 <Border.Effect>
