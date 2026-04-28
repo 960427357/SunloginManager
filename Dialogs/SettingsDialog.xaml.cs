@@ -19,6 +19,7 @@ namespace SunloginManager
         private string _sunloginPath = string.Empty;
         private bool _enableLogging;
         private int _autoLockMinutes;
+        private bool _hasMasterPassword;
 
         public string SunloginPath => _sunloginPath;
         public bool EnableLogging => _enableLogging;
@@ -73,6 +74,9 @@ namespace SunloginManager
             // 加载安全设置
             var ds = new DataService();
             _autoLockMinutes = ds.GetAutoLockMinutes();
+            _hasMasterPassword = ds.HasMasterPassword();
+            ChangePasswordButton.Content = _hasMasterPassword ? "修改密码" : "设置密码";
+            RemovePasswordButton.IsEnabled = _hasMasterPassword;
             foreach (System.Windows.Controls.ComboBoxItem item in AutoLockComboBox.Items)
             {
                 if (item.Tag.ToString() == _autoLockMinutes.ToString())
@@ -206,11 +210,15 @@ namespace SunloginManager
 
         private void ChangePasswordButton_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new PasswordDialog(PasswordDialogMode.Change);
+            var mode = _hasMasterPassword ? PasswordDialogMode.Change : PasswordDialogMode.SetPassword;
+            var dialog = new PasswordDialog(mode);
             dialog.Owner = this;
             if (dialog.ShowDialog() == true)
             {
-                MessageBox.Show("密码修改成功", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(_hasMasterPassword ? "密码修改成功" : "密码设置成功", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                _hasMasterPassword = true;
+                ChangePasswordButton.Content = "修改密码";
+                RemovePasswordButton.IsEnabled = true;
             }
         }
 
@@ -222,6 +230,9 @@ namespace SunloginManager
                 var ds = new DataService();
                 ds.RemoveMasterPassword();
                 MessageBox.Show("主密码已移除", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                _hasMasterPassword = false;
+                ChangePasswordButton.Content = "设置密码";
+                RemovePasswordButton.IsEnabled = false;
             }
         }
 

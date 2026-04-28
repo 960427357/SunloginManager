@@ -9,7 +9,8 @@ namespace SunloginManager
     public enum PasswordDialogMode
     {
         Login,
-        Change
+        Change,
+        SetPassword
     }
 
     public partial class PasswordDialog : Window
@@ -51,6 +52,17 @@ namespace SunloginManager
                     NewPasswordRow.Visibility = Visibility.Visible;
                     ConfirmNewPasswordRow.Visibility = Visibility.Visible;
                     Height = 420;
+                    break;
+
+                case PasswordDialogMode.SetPassword:
+                    Title = "设置主密码";
+                    TitleText.Text = "设置主密码";
+                    SubtitleText.Text = "请输入并确认新密码";
+                    CurrentPasswordRow.Visibility = Visibility.Collapsed;
+                    NewPasswordLabel.Text = "新密码";
+                    NewPasswordRow.Visibility = Visibility.Visible;
+                    ConfirmNewPasswordRow.Visibility = Visibility.Visible;
+                    Height = 340;
                     break;
             }
         }
@@ -102,6 +114,10 @@ namespace SunloginManager
 
                 case PasswordDialogMode.Change:
                     HandleChange();
+                    break;
+
+                case PasswordDialogMode.SetPassword:
+                    HandleSetPassword();
                     break;
             }
         }
@@ -170,6 +186,29 @@ namespace SunloginManager
                 CurrentPasswordBox.Password = string.Empty;
                 CurrentPasswordBox.Focus();
             }
+        }
+
+        private void HandleSetPassword()
+        {
+            string newPassword = GetNewPassword();
+            string confirmPassword = GetConfirmNewPassword();
+
+            if (string.IsNullOrEmpty(newPassword) || string.IsNullOrEmpty(confirmPassword))
+            {
+                MessageBox.Show("所有字段必须填写", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (newPassword != confirmPassword)
+            {
+                MessageBox.Show("两次输入的密码不一致", "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var ds = new DataService();
+            ds.SetMasterPassword(newPassword);
+            DialogResult = true;
+            Close();
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)
