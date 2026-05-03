@@ -8,6 +8,7 @@ namespace SunloginManager.Constants
         // 虚拟键码
         public const byte VK_TAB = 0x09;
         public const byte VK_RETURN = 0x0D;
+        public const byte VK_ESCAPE = 0x1B;
         public const byte VK_CONTROL = 0x11;
         public const byte VK_SHIFT = 0x10;
         public const byte VK_DELETE = 0x2E;

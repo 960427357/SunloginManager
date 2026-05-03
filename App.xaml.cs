@@ -167,41 +167,41 @@ namespace SunloginManager
                 Text = "向日葵远程连接管理器",
                 Visible = true
             };
-            
+
             // 创建上下文菜单
             var contextMenu = new ContextMenuStrip();
-            
+
             // 显示窗口菜单项
             var showMenuItem = new ToolStripMenuItem("显示主窗口", null, OnShowMainWindow);
             contextMenu.Items.Add(showMenuItem);
-            
+
             contextMenu.Items.Add(new ToolStripSeparator());
-            
+
             // 退出菜单项 - 直接退出
             var exitMenuItem = new ToolStripMenuItem("退出", null, (s, e) => {
                 Services.LogService.LogInfo("用户点击退出菜单");
-                
+
                 // 清理资源
                 if (_notifyIcon != null)
                 {
                     _notifyIcon.Visible = false;
                     _notifyIcon.Dispose();
                 }
-                
+
                 // 强制退出应用程序
                 Environment.Exit(0);
             });
             contextMenu.Items.Add(exitMenuItem);
-            
+
             _notifyIcon.ContextMenuStrip = contextMenu;
-            
+
             // 双击托盘图标显示主窗口
             _notifyIcon.DoubleClick += OnNotifyIconDoubleClick;
-            
+
             // 处理应用程序退出事件
             this.Exit += OnApplicationExit;
         }
-        
+
         private void OnNotifyIconDoubleClick(object? sender, EventArgs e)
         {
             ShowMainWindow();
@@ -268,7 +268,7 @@ namespace SunloginManager
                 _notifyIcon.Visible = false;
                 _notifyIcon.Dispose();
             }
-            
+
             // 释放互斥锁
             if (_mutex != null)
             {

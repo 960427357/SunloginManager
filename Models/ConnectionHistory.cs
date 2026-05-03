@@ -8,6 +8,7 @@ namespace SunloginManager.Models
         public int ConnectionId { get; set; }
         public string ConnectionName { get; set; } = string.Empty;
         public string IdentificationCode { get; set; } = string.Empty;
+        public Guid SessionId { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime? EndTime { get; set; }
         public TimeSpan? Duration { get; set; }

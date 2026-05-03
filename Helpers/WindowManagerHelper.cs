@@ -20,6 +20,59 @@ namespace SunloginManager.Helpers
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
         [DllImport("user32.dll")]
         private static extern bool IsWindowVisible(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        /// <summary>
+        /// 查找向日葵主程序窗口（排除远程会话窗口），用于自动输入识别码和连接码
+        /// </summary>
+        public static IntPtr FindSunloginMainWindow()
+        {
+            LogService.LogInfo("开始查找向日葵主程序窗口（排除远程会话）...");
+
+            var aweSunProcesses = Process.GetProcessesByName("AweSun");
+            LogService.LogInfo($"找到 {aweSunProcesses.Length} 个 AweSun 进程");
+
+            foreach (var process in aweSunProcesses)
+            {
+                LogService.LogInfo($"检查 AweSun 进程 PID: {process.Id}, 窗口标题：'{process.MainWindowTitle}'");
+                if (process.MainWindowHandle != IntPtr.Zero)
+                {
+                    // 排除远程会话窗口（标题包含数字识别码的）
+                    string title = process.MainWindowTitle ?? "";
+                    if (!IsRemoteSessionWindow(title))
+                    {
+                        LogService.LogInfo($"找到主程序窗口，句柄：{process.MainWindowHandle}");
+                        return process.MainWindowHandle;
+                    }
+                    LogService.LogInfo($"跳过远程会话窗口: '{title}'");
+                }
+            }
+
+            // 回退到原有逻辑
+            return FindSunloginWindow();
+        }
+
+        /// <summary>
+        /// 判断窗口标题是否为远程会话窗口（包含较长数字串，像识别码）
+        /// </summary>
+        private static bool IsRemoteSessionWindow(string windowTitle)
+        {
+            if (string.IsNullOrEmpty(windowTitle))
+                return false;
+
+            // 远程会话窗口标题通常包含连续数字（识别码）
+            // 检测是否有 >= 6 位连续数字
+            int maxDigits = 0, current = 0;
+            foreach (char c in windowTitle)
+            {
+                if (char.IsDigit(c)) current++;
+                else { maxDigits = Math.Max(maxDigits, current); current = 0; }
+            }
+            maxDigits = Math.Max(maxDigits, current);
+
+            return maxDigits >= 6;
+        }
 
         /// <summary>
         /// 查找向日葵窗口
@@ -185,101 +238,98 @@ namespace SunloginManager.Helpers
         }
 
         /// <summary>
-        /// 等待连接窗口出现（需稳定存在），然后等待它消失。返回连接是否成功建立。
+        /// 如果当前处于远程连接状态，则返回主界面
+        /// 用于在已有活跃连接的情况下发起新连接
         /// </summary>
-        public static async Task<bool> WaitForConnectionSessionAsync(string identificationCode, CancellationToken cancellationToken = default, int pollIntervalMs = 10000, int appearTimeoutMs = 30000, int closeTimeoutMs = 3600000)
+        public static async Task<bool> ReturnToMainScreenIfNeededAsync()
         {
-            LogService.LogInfo($"开始监控连接会话: 识别码 {identificationCode}");
-            var sw = System.Diagnostics.Stopwatch.StartNew();
+            LogService.LogInfo("检查是否已有活跃连接...");
 
-            // 阶段1: 等待连接窗口出现，连续3次检测到才算真正出现
-            bool windowAppeared = false;
-            int stableCount = 0;
-            const int requiredStableCount = 3;
-            while (sw.ElapsedMilliseconds < appearTimeoutMs)
+            var windows = GetOpenWindows();
+
+            // 查找包含识别码的连接窗口（非主界面）
+            // 向日葵/AweSun 连接时窗口标题通常包含识别码
+            var connectionWindow = windows.FirstOrDefault(w =>
+                IsWindowVisible(w.hWnd) &&
+                IsAweSunWindow(w.title) &&
+                !string.IsNullOrEmpty(w.title) &&
+                w.title.Any(char.IsDigit) &&
+                !w.title.Contains("首页", StringComparison.OrdinalIgnoreCase) &&
+                !w.title.Contains("Main", StringComparison.OrdinalIgnoreCase));
+
+            if (connectionWindow.hWnd != IntPtr.Zero)
             {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    LogService.LogInfo("监控任务已取消");
-                    return false;
-                }
-                var windows = GetOpenWindows();
-                if (windows.Any(w => IsWindowVisible(w.hWnd) && w.title.Replace(" ", "").Contains(identificationCode)))
-                {
-                    stableCount++;
-                    if (stableCount >= requiredStableCount)
-                    {
-                        windowAppeared = true;
-                        LogService.LogInfo($"检测到可见连接窗口: {identificationCode}, 耗时 {sw.ElapsedMilliseconds}ms");
-                        break;
-                    }
-                }
-                else
-                {
-                    stableCount = 0;
-                }
-                await Task.Delay(pollIntervalMs);
+                LogService.LogInfo($"检测到活跃连接窗口: '{connectionWindow.title}'，正在返回主界面...");
+
+                // 激活连接窗口
+                SetForegroundWindow(connectionWindow.hWnd);
+                await Task.Delay(150);
+
+                // 发送 ESC 键返回主界面
+                await KeyboardInputHelper.SendKeyAsync(KeyboardConstants.VK_ESCAPE);
+                await Task.Delay(500);
+
+                // 再发送一次确保生效
+                await KeyboardInputHelper.SendKeyAsync(KeyboardConstants.VK_ESCAPE);
+                await Task.Delay(500);
+
+                LogService.LogInfo("已尝试返回主界面");
+                return true;
             }
 
-            if (!windowAppeared)
-            {
-                LogService.LogWarning($"连接窗口未在 {appearTimeoutMs}ms 内稳定出现，连接可能未建立");
-                return false;
-            }
-
-            // 阶段2: 等待连接窗口关闭
-            sw.Restart();
-            while (sw.ElapsedMilliseconds < closeTimeoutMs)
-            {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    LogService.LogInfo("监控任务已取消（阶段2）");
-                    return true;
-                }
-                var windows = GetOpenWindows();
-                if (!windows.Any(w => IsWindowVisible(w.hWnd) && w.title.Replace(" ", "").Contains(identificationCode)))
-                {
-                    LogService.LogInfo($"连接窗口已关闭: {identificationCode}, 会话时长 {sw.ElapsedMilliseconds}ms");
-                    return true;
-                }
-                await Task.Delay(pollIntervalMs);
-            }
-
-            LogService.LogWarning($"监控超时: 识别码 {identificationCode}");
-            return true;
+            LogService.LogInfo("未检测到活跃连接");
+            return false;
         }
 
         /// <summary>
-        /// 查找包含指定识别码的连接窗口，返回其进程ID
+        /// 判断窗口标题是否为 AweSun/向日葵相关窗口
         /// </summary>
-        public static Process? FindRemoteConnectionProcess(string identificationCode, int timeoutMs = 15000)
+        private static bool IsAweSunWindow(string windowTitle)
         {
-            LogService.LogInfo($"开始查找识别码为 {identificationCode} 的远程连接窗口...");
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            while (sw.ElapsedMilliseconds < timeoutMs)
-            {
-                var windows = GetOpenWindows();
-                foreach (var (hWnd, title) in windows)
-                {
-                    if (title.Replace(" ", "").Contains(identificationCode))
-                    {
-                        uint pid = GetWindowProcessId(hWnd);
-                        if (pid > 0)
-                        {
-                            try
-                            {
-                                var proc = Process.GetProcessById((int)pid);
-                                LogService.LogInfo($"找到远程连接窗口 PID: {pid}, 标题: '{title}'");
-                                return proc;
-                            }
-                            catch { }
-                        }
-                    }
-                }
-                System.Threading.Thread.Sleep(500);
-            }
-            LogService.LogWarning($"超时未找到识别码 {identificationCode} 的连接窗口");
-            return null;
+            if (string.IsNullOrEmpty(windowTitle))
+                return false;
+
+            string lower = windowTitle.ToLowerInvariant();
+            return lower.Contains("awesun")
+                   || lower.Contains("sunlogin")
+                   || lower.Contains("向日葵")
+                   || lower.Contains("oray")
+                   || lower.Contains("远程")
+                   || lower.Contains("remote")
+                   || lower.Contains("桌面")
+                   || lower.Contains("control");
+        }
+
+        /// <summary>
+        /// 判断窗口标题是否为向日葵远程连接窗口（包含指定识别码）
+        /// 长识别码（>= 6位）直接匹配即可，误判概率极低
+        /// </summary>
+        private static bool IsSunloginWindow(string windowTitle, string identificationCode)
+        {
+            if (string.IsNullOrEmpty(windowTitle) || string.IsNullOrEmpty(identificationCode))
+                return false;
+
+            // 短识别码（< 4位）不做匹配，防止误判
+            if (identificationCode.Length < 4)
+                return false;
+
+            string cleanedTitle = windowTitle.Replace(" ", "");
+
+            // 窗口标题必须包含识别码
+            if (!cleanedTitle.Contains(identificationCode))
+                return false;
+
+            // 长识别码（>= 6位）直接匹配，误判概率极低
+            if (identificationCode.Length >= 6)
+                return true;
+
+            // 4-5位短识别码需要额外校验关键词
+            return cleanedTitle.Contains("远程")
+                   || cleanedTitle.Contains("向日葵")
+                   || cleanedTitle.Contains("AweSun")
+                   || cleanedTitle.Contains("Sunlogin")
+                   || cleanedTitle.Contains("控制")
+                   || cleanedTitle.Contains("桌面");
         }
 
         private static List<(IntPtr hWnd, string title)> GetOpenWindows()

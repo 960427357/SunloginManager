@@ -6,24 +6,24 @@ namespace SunloginManager.Constants
     public static class TimingConstants
     {
         // 窗口操作延迟
-        public const int WINDOW_ACTIVATION_DELAY = 100;
-        public const int WINDOW_LOAD_DELAY = 1500;
+        public const int WINDOW_ACTIVATION_DELAY = 50;
+        public const int WINDOW_LOAD_DELAY = 800;
 
         // 键盘输入延迟
         public const int KEY_PRESS_DELAY = 10;
         public const int KEY_INPUT_DELAY = 10;
-        public const int TAB_KEY_DELAY = 200;
+        public const int TAB_KEY_DELAY = 50;
 
         // 输入框操作延迟
-        public const int CLEAR_INPUT_DELAY = 100;
-        public const int INPUT_COMPLETE_DELAY = 100;
+        public const int CLEAR_INPUT_DELAY = 50;
+        public const int INPUT_COMPLETE_DELAY = 50;
 
         // 验证码相关延迟
-        public const int VERIFICATION_WAIT_DELAY = 1500;
-        public const int VERIFICATION_LOAD_DELAY = 500;
+        public const int VERIFICATION_WAIT_DELAY = 500;
+        public const int VERIFICATION_LOAD_DELAY = 300;
 
         // 线程操作延迟
-        public const int THREAD_ATTACH_DELAY = 100;
+        public const int THREAD_ATTACH_DELAY = 50;
         public const int THREAD_OPERATION_DELAY = 50;
     }
 }

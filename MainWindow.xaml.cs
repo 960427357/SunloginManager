@@ -32,15 +32,14 @@ namespace SunloginManager
         private int _favoriteGroupId = 0;
         private int _defaultGroupId = 1;
         private readonly SunloginService _sunloginService;
-        private readonly HistoryService _historyService;
         private RemoteConnection? _selectedConnection;
         private TextBlock? _searchPlaceholderControl;
         private DispatcherTimer _statusTimer;
         private DispatcherTimer? _autoLockTimer;
-        private readonly Dictionary<int, CancellationTokenSource> _activeMonitors = new();
         private string _currentSortColumn = "";
         private bool _sortAscending = true;
         private bool _isLocked;
+        private bool _isConnecting;
         private bool _lockPasswordVisible;
         private const uint WM_SHOWWINDOW_CUSTOM = 0x0400 + 1;
         
@@ -74,7 +73,6 @@ namespace SunloginManager
             InitializeComponent();
             _dataService = new DataService();
             _sunloginService = new SunloginService(_dataService);
-            _historyService = new HistoryService(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data"));
             Connections = new ObservableCollection<RemoteConnection>();
             
             DataContext = this;
@@ -451,7 +449,7 @@ namespace SunloginManager
             if (_isLocked) return;
             if (ConnectionsListView.SelectedItem is RemoteConnection connection)
             {
-                await ConnectAndMonitorAsync(connection);
+                await ConnectAsync(connection);
             }
             else
             {
@@ -465,7 +463,7 @@ namespace SunloginManager
             if (_isLocked) return;
             if (SelectedConnection != null)
             {
-                await ConnectAndMonitorAsync(SelectedConnection);
+                await ConnectAsync(SelectedConnection);
             }
             else
             {
@@ -525,7 +523,7 @@ namespace SunloginManager
             if (_isLocked) return;
             if (sender is System.Windows.Controls.Button button && button.DataContext is RemoteConnection connection)
             {
-                await ConnectAndMonitorAsync(connection);
+                await ConnectAsync(connection);
             }
         }
         
@@ -1012,7 +1010,7 @@ namespace SunloginManager
             if (_isLocked) return;
             if (ConnectionsListView.SelectedItem is RemoteConnection connection)
             {
-                await ConnectAndMonitorAsync(connection);
+                await ConnectAsync(connection);
             }
         }
 
@@ -1032,7 +1030,7 @@ namespace SunloginManager
             if (_isLocked) return;
             if (ConnectionsListView.SelectedItem is RemoteConnection conn)
             {
-                await ConnectAndMonitorAsync(conn);
+                await ConnectAsync(conn);
             }
         }
 
@@ -1126,69 +1124,32 @@ namespace SunloginManager
             UpdateStatusText(connection.IsFavorite ? $"已收藏: {connection.Name}" : $"取消收藏: {connection.Name}");
         }
 
-        // 连接并监控时长
-        private async Task ConnectAndMonitorAsync(RemoteConnection connection)
+        // 连接
+        private async Task ConnectAsync(RemoteConnection connection)
         {
+            if (_isConnecting)
+            {
+                LogService.LogInfo("连接正在进行中，忽略重复请求");
+                return;
+            }
+
+            _isConnecting = true;
             try
             {
                 LogService.LogInfo($"开始连接: {connection.Name} (ID: {connection.Id})");
                 UpdateStatusText($"正在连接 {connection.Name}...");
 
-                var (success, process) = await _sunloginService.ConnectWithMonitoringAsync(connection);
+                var success = await _sunloginService.ConnectAsync(connection);
 
                 if (success)
                 {
                     _dataService.UpdateConnection(connection);
                     LoadConnections();
                     UpdateStatusText($"已连接到 {connection.Name}");
-
-                    // 为每个连接创建独立的监控任务
-                    var startTime = DateTime.Now;
-                    _historyService.RecordStart(connection.Id, connection.Name, connection.IdentificationCode, startTime);
-                    LogService.LogInfo($"开始监控连接时长: {connection.Name}, 识别码: {connection.IdentificationCode}");
-
-                    // 如果该连接已有监控，先取消旧任务
-                    if (_activeMonitors.TryGetValue(connection.Id, out var oldCts))
-                    {
-                        oldCts.Cancel();
-                        _activeMonitors.Remove(connection.Id);
-                    }
-
-                    var cts = new CancellationTokenSource();
-                    _activeMonitors[connection.Id] = cts;
-
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            var windowExisted = await WindowManagerHelper.WaitForConnectionSessionAsync(
-                                connection.IdentificationCode,
-                                cancellationToken: cts.Token,
-                                pollIntervalMs: 10000,
-                                closeTimeoutMs: 3600000);
-                            var endTime = DateTime.Now;
-                            _historyService.RecordEnd(connection.Id, endTime);
-                            LogService.LogInfo($"连接结束: {connection.Name}, 时长: {endTime - startTime}");
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            LogService.LogInfo($"连接监控已取消: {connection.Name}");
-                        }
-                        catch (Exception ex)
-                        {
-                            LogService.LogError($"监控连接时长异常: {connection.Name}, {ex.Message}");
-                        }
-                        finally
-                        {
-                            _activeMonitors.Remove(connection.Id);
-                            cts.Dispose();
-                        }
-                    }, cts.Token);
                 }
                 else
                 {
                     UpdateStatusText("连接失败");
-                    _historyService.RecordFailed(connection.Id, connection.Name, connection.IdentificationCode, "连接未成功", ConnectionStatus.Failed);
                 }
             }
             catch (Exception ex)
@@ -1196,25 +1157,10 @@ namespace SunloginManager
                 UpdateStatusText($"连接失败: {ex.Message}");
                 LogService.LogError($"连接失败: {ex.Message}", ex);
             }
-        }
-
-        // 顶部栏 - 历史记录
-        private void HistoryButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_isLocked) return;
-            var dialog = new ConnectionHistoryDialog(_historyService);
-            dialog.Owner = this;
-            dialog.ShowDialog();
-        }
-
-        // 顶部栏 - 统计
-        private void StatsButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_isLocked) return;
-            var stats = _historyService.GetStats();
-            var dialog = new ConnectionStatsDialog(stats);
-            dialog.Owner = this;
-            dialog.ShowDialog();
+            finally
+            {
+                _isConnecting = false;
+            }
         }
 
         // 顶部栏 - 测试连接
@@ -1376,7 +1322,7 @@ namespace SunloginManager
         }
 
         /// <summary>
-        /// 窗口从托盘恢复显时调用
+        /// 窗口从托盘恢复显示时调用
         /// </summary>
         public void OnWindowShown()
         {
@@ -1395,13 +1341,6 @@ namespace SunloginManager
         {
             LogService.LogInfo("OnWindowHidden 调用");
             _autoLockTimer?.Stop();
-            // 取消所有连接监控任务
-            foreach (var cts in _activeMonitors.Values)
-            {
-                cts.Cancel();
-                cts.Dispose();
-            }
-            _activeMonitors.Clear();
         }
 
         #endregion

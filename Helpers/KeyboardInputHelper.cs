@@ -92,7 +92,7 @@ namespace SunloginManager.Helpers
         }
 
         /// <summary>
-        /// 通过剪贴板粘贴发送文本（比逐字符输入快）
+        /// 通过逐字符输入发送文本（比剪贴板粘贴更稳定更快）
         /// </summary>
         public static async Task SendTextViaPasteAsync(string text)
         {
@@ -102,37 +102,40 @@ namespace SunloginManager.Helpers
                 return;
             }
 
-            LogService.LogInfo($"SendTextViaPaste: 准备粘贴文本 '{text}' (长度: {text.Length})");
+            LogService.LogInfo($"SendTextViaPaste: 逐字符输入文本 (长度: {text.Length})");
 
-            // 复制到剪贴板
-            for (int i = 0; i < 3; i++)
+            // 直接逐字符输入，比Ctrl+V更快
+            foreach (char c in text)
             {
                 try
                 {
-                    System.Windows.Clipboard.SetText(text);
-                    break;
+                    short vkCode = WindowsApiHelper.GetVirtualKeyCode(c);
+                    if (vkCode == -1) continue;
+
+                    byte keyCode = (byte)(vkCode & 0xFF);
+                    byte shiftState = (byte)((vkCode >> 8) & 0xFF);
+                    bool needShift = (shiftState & 0x01) != 0;
+
+                    if (needShift)
+                    {
+                        uint shiftScan = WindowsApiHelper.GetScanCode(KeyboardConstants.VK_SHIFT);
+                        WindowsApiHelper.SendKeyEvent(KeyboardConstants.VK_SHIFT, (byte)shiftScan, 0, 0);
+                    }
+
+                    uint scanCode = WindowsApiHelper.GetScanCode(keyCode);
+                    WindowsApiHelper.SendKeyEvent(keyCode, (byte)scanCode, 0, 0);
+                    WindowsApiHelper.SendKeyEvent(keyCode, (byte)scanCode, KeyboardConstants.KEYEVENTF_KEYUP, 0);
+
+                    if (needShift)
+                    {
+                        uint shiftScan = WindowsApiHelper.GetScanCode(KeyboardConstants.VK_SHIFT);
+                        WindowsApiHelper.SendKeyEvent(KeyboardConstants.VK_SHIFT, (byte)shiftScan, KeyboardConstants.KEYEVENTF_KEYUP, 0);
+                    }
                 }
-                catch
-                {
-                    await Task.Delay(50);
-                }
+                catch { }
             }
 
-            await Task.Delay(50);
-
-            // 发送 Ctrl+V 粘贴
-            uint ctrlScan = WindowsApiHelper.GetScanCode(KeyboardConstants.VK_CONTROL);
-            uint vScan = WindowsApiHelper.GetScanCode((byte)0x56); // VK_V
-
-            WindowsApiHelper.SendKeyEvent(KeyboardConstants.VK_CONTROL, (byte)ctrlScan, 0, 0);
-            await Task.Delay(10);
-            WindowsApiHelper.SendKeyEvent((byte)0x56, (byte)vScan, 0, 0);
-            await Task.Delay(10);
-            WindowsApiHelper.SendKeyEvent((byte)0x56, (byte)vScan, KeyboardConstants.KEYEVENTF_KEYUP, 0);
-            await Task.Delay(10);
-            WindowsApiHelper.SendKeyEvent(KeyboardConstants.VK_CONTROL, (byte)ctrlScan, KeyboardConstants.KEYEVENTF_KEYUP, 0);
-
-            LogService.LogInfo("SendTextViaPaste: 粘贴完成");
+            LogService.LogInfo($"SendTextViaPaste: 输入完成");
         }
         
         /// <summary>

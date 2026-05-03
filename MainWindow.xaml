@@ -415,8 +415,6 @@
                 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
                     <Button Content="刷新" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,5,0" Click="RefreshButton_Click"/>
-                    <Button Content="历史" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,5,0" Click="HistoryButton_Click"/>
-                    <Button Content="统计" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,5,0" Click="StatsButton_Click"/>
                     <Button Content="测试" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,5,0" Click="TestConnectionButton_Click"/>
                     <Button Content="分组" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,5,0" Click="ManageGroupsButton_Click"/>
                     <Button Content="设置" Style="{StaticResource AppleButtonStyle}" Width="70" Height="35" Margin="0,0,5,0" Click="SettingsButton_Click"/>

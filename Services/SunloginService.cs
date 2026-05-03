@@ -65,7 +65,7 @@ namespace SunloginManager.Services
         public async Task<bool> ConnectToRemoteAsync(RemoteConnection connection)
         {
             LogService.LogInfo($"开始连接到远程主机：{connection.Name} (ID: {connection.Id})");
-            LogService.LogInfo($"连接详情 - 识别码：{connection.IdentificationCode}, 连接码：{connection.ConnectionCode}");
+            LogService.LogInfo($"连接详情 - 识别码：{connection.IdentificationCode}, 连接码：****");
 
             if (!IsSunloginInstalled())
             {
@@ -104,75 +104,59 @@ namespace SunloginManager.Services
         }
 
         /// <summary>
-        /// 连接并返回连接会话进程用于时长监控
+        /// 连接到远程主机（无监控）
         /// </summary>
-        public async Task<(bool Success, Process? SessionProcess)> ConnectWithMonitoringAsync(RemoteConnection connection)
+        public async Task<bool> ConnectAsync(RemoteConnection connection)
         {
-            LogService.LogInfo($"开始连接到远程主机（监控模式）：{connection.Name}");
+            LogService.LogInfo($"开始连接到远程主机：{connection.Name}");
 
             if (!IsSunloginInstalled())
             {
                 LogService.LogError("向日葵客户端路径无效或不存在");
-                return (false, null);
+                return false;
             }
 
             try
             {
-                // 启动向日葵客户端
-                ProcessStartInfo startInfo = new ProcessStartInfo
-                {
-                    FileName = _sunloginPath,
-                    UseShellExecute = true
-                };
-                await Task.Run(() => Process.Start(startInfo));
+                var procName = Path.GetFileNameWithoutExtension(_sunloginPath);
 
-                // 等待界面加载
+                bool alreadyRunning = Process.GetProcessesByName(procName)
+                    .Any(p => p.MainWindowHandle != IntPtr.Zero);
+                if (!alreadyRunning)
+                {
+                    LogService.LogInfo("向日葵未运行，启动客户端");
+                    ProcessStartInfo startInfo = new ProcessStartInfo
+                    {
+                        FileName = _sunloginPath,
+                        UseShellExecute = true
+                    };
+                    await Task.Run(() => Process.Start(startInfo));
+                    await Task.Delay(TimingConstants.WINDOW_LOAD_DELAY);
+                }
+                else
+                {
+                    LogService.LogInfo("向日葵已在运行，复用现有实例");
+                }
+
+                await WindowManagerHelper.ReturnToMainScreenIfNeededAsync();
                 await Task.Delay(TimingConstants.WINDOW_LOAD_DELAY);
 
-                // 自动输入识别码和连接码
                 bool inputSuccess = await AutoInputCodesAsync(connection);
 
                 if (!inputSuccess)
                 {
                     LogService.LogError("自动输入识别码和连接码失败");
-                    return (false, null);
+                    return false;
                 }
 
-                // 更新最后连接时间
                 connection.LastConnectedAt = DateTime.Now;
                 LogService.LogInfo($"连接成功，已更新最后连接时间：{connection.LastConnectedAt}");
-
-                // 等待连接窗口出现（确认连接已建立）
-                LogService.LogInfo("等待远程连接窗口出现...");
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                Process? sessionProc = null;
-                while (sw.ElapsedMilliseconds < 30000)
-                {
-                    sessionProc = WindowManagerHelper.FindRemoteConnectionProcess(connection.IdentificationCode, timeoutMs: 3000);
-                    if (sessionProc != null)
-                    {
-                        LogService.LogInfo($"找到连接会话进程: PID={sessionProc.Id}, 名称={sessionProc.ProcessName}");
-                        break;
-                    }
-                    await Task.Delay(1000);
-                }
-
-                if (sessionProc == null)
-                {
-                    LogService.LogWarning("未找到连接会话进程（30秒超时）");
-                    // 备用方案：找到最新的向日葵进程
-                    var procName = Path.GetFileNameWithoutExtension(_sunloginPath);
-                    var procs = Process.GetProcessesByName(procName);
-                    sessionProc = procs.OrderByDescending(p => p.StartTime).FirstOrDefault();
-                    LogService.LogWarning($"使用备用进程: {sessionProc?.ProcessName}, PID={sessionProc?.Id}");
-                }
-
-                return (true, sessionProc);
+                return true;
             }
             catch (Exception ex)
             {
                 LogService.LogError($"连接失败：{ex.Message}", ex);
-                return (false, null);
+                return false;
             }
         }
 
@@ -305,12 +289,12 @@ namespace SunloginManager.Services
         {
             LogService.LogInfo("===== 开始自动输入识别码和连接码 =====");
             LogService.LogInfo($"目标识别码：{connection.IdentificationCode}");
-            LogService.LogInfo($"目标连接码：{connection.ConnectionCode}");
+            LogService.LogInfo("目标连接码：****");
 
             try
             {
-                // 查找向日葵窗口
-                IntPtr sunloginWindow = WindowManagerHelper.FindSunloginWindow();
+                // 查找向日葵主程序窗口（排除远程会话窗口）
+                IntPtr sunloginWindow = WindowManagerHelper.FindSunloginMainWindow();
                 if (sunloginWindow == IntPtr.Zero)
                 {
                     LogService.LogError("无法找到向日葵窗口");
@@ -345,7 +329,7 @@ namespace SunloginManager.Services
                 // 处理验证码（如果需要）
                 await HandleVerificationCodeAsync(connection, sunloginWindow);
 
-                await Task.Delay(1000);
+                await Task.Delay(300);
 
                 LogService.LogInfo("===== 自动输入完成 =====");
                 return true;
@@ -396,7 +380,7 @@ namespace SunloginManager.Services
         /// </summary>
         private async Task InputConnectionCodeAsync(string connectionCode)
         {
-            LogService.LogInfo($"开始输入连接码：{connectionCode}");
+            LogService.LogInfo("开始输入连接码：****");
 
             // 等待焦点切换
             await Task.Delay(TimingConstants.INPUT_COMPLETE_DELAY);
@@ -442,8 +426,6 @@ namespace SunloginManager.Services
             try
             {
                 LogService.LogInfo("检查是否需要输入验证码");
-                await Task.Delay(1000);
-
                 // 简化版：大多数情况下不需要验证码
                 LogService.LogInfo("验证码检查完成");
                 return false;
@@ -460,7 +442,7 @@ namespace SunloginManager.Services
         /// </summary>
         private async Task InputVerificationCodeAsync(string verificationCode)
         {
-            LogService.LogInfo($"使用配置的验证码：{verificationCode}");
+            LogService.LogInfo("使用配置的验证码：****");
 
             // 等待验证码界面加载
             await Task.Delay(TimingConstants.VERIFICATION_LOAD_DELAY);
